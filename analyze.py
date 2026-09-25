@@ -46,6 +46,16 @@ def load_rebook():
     return df
 
 
+def first_visit_days(df):
+    """お客様ごとの「1回目の来店日」の一覧"""
+    bills = _bills(df)[["客ID名", "来店日"]].dropna(subset=["来店日"])
+    seq = collections.defaultdict(set)
+    for cid, day in zip(bills["客ID名"], bills["来店日"]):
+        if cid:
+            seq[cid].add(day.date())
+    return {(cid, min(days)) for cid, days in seq.items() if days}
+
+
 def mark_first_visit(rb, df):
     """次回予約を「初回来店のお客様から取れたもの」に絞るための印をつける。
 
@@ -56,13 +66,7 @@ def mark_first_visit(rb, df):
     if rb.empty:
         rb["初回"] = []
         return rb
-    bills = _bills(df)[["客ID名", "来店日"]].dropna(subset=["来店日"])
-    # お客様ごとに、来店日を古い順に並べる（同じ日の複数会計は1回と数える）
-    seq = collections.defaultdict(set)
-    for cid, day in zip(bills["客ID名"], bills["来店日"]):
-        if cid:
-            seq[cid].add(day.date())
-    firsts = {(cid, min(days)) for cid, days in seq.items() if days}
+    firsts = first_visit_days(df)
     made_day = pd.to_datetime(rb["打った日時"].astype(str).str.slice(0, 10), errors="coerce")
     flags = []
     for cid, d0 in zip(rb["客ID名"].fillna("").astype(str), made_day):
@@ -136,7 +140,7 @@ def _bills(d):
     return b
 
 
-def _metrics(d, all_df=None, month=None):
+def _metrics(d, all_df=None, month=None, first_days=None):
     m = _slice(d)
     b = _bills(d)
     n = len(b)
@@ -178,6 +182,14 @@ def _metrics(d, all_df=None, month=None):
                      b["支払い方法"].fillna("不明").value_counts().items()}
     m["daily"] = _daily(d)
     m["detail"] = _detail(d)
+    # 初回来店のお客様が何人いたか（次回予約の取得率の分母）
+    if first_days is not None:
+        bb = b[["客ID名", "来店日"]].dropna()
+        m["first_visits"] = int(sum(
+            1 for cid, day in zip(bb["客ID名"], bb["来店日"])
+            if cid and (cid, day.date()) in first_days))
+    else:
+        m["first_visits"] = 0
     return m
 
 
@@ -268,31 +280,41 @@ def _return_rate(all_df, month, idx, staff=None):
 
 def build():
     df = load()
+    firsts = first_visit_days(df)
     rb = mark_first_visit(load_rebook(), df)
     idx = _visit_index(df)
     months = sorted(df["月"].unique())
     out = {}
     for mo in months:
         d = df[df["月"] == mo]
-        store = _metrics(d)
+        store = _metrics(d, first_days=firsts)
         store["return"] = _return_rate(df, mo, idx)
-        store["rebook_made"] = rebook_funnel(rb, mo)
+        store["rebook_made"] = _with_rate(rebook_funnel(rb, mo), store["first_visits"])
         store["end"] = str(d["来店日"].max().date())
         people = {}
         for name, g in d.groupby("施術担当者"):
             if not name or name in EXCLUDE:
                 continue
-            p = _metrics(g)
+            p = _metrics(g, first_days=firsts)
             if p["customers"] < 20:
                 continue
             p["return"] = _return_rate(df, mo, idx, name)
-            p["rebook_made"] = rebook_funnel(rb, mo, name)
+            p["rebook_made"] = _with_rate(rebook_funnel(rb, mo, name), p["first_visits"])
             people[name] = p
         store["headcount"] = len(people)
         out[mo] = {"store": store, "stylists": people,
                    "active": sorted(people, key=lambda k: -people[k]["net"]),
                    "top_goods": _top(d, "商品"), "top_menus": _top(d, "技術")}
     return out
+
+
+def _with_rate(f, first_visits):
+    """取得率＝初回来店のお客様のうち、次回予約を取れた割合"""
+    if f is None:
+        return None
+    f["first_visits"] = int(first_visits)
+    f["take_rate"] = (f["made"] / first_visits * 100) if first_visits else None
+    return f
 
 
 def _top(d, kind, n=10):

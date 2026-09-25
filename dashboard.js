@@ -179,6 +179,8 @@ function rebookBlock(x, s) {
       <div class="d">${judged ? (f.cancelled / judged * 100).toFixed(0) + '%' : '—'}</div></div>
     <div><div class="k">来店待ち</div><div class="v">${f ? f.upcoming : 0}<span style="font-size:.62em">件</span></div>
       <div class="d">来店日がまだ先</div></div>
+    <div><div class="k">取得率</div><div class="v">${f && f.take_rate !== null ? pct(f.take_rate) : '—'}</div>
+      <div class="d">初回来店 ${f ? f.first_visits : 0}人のうち</div></div>
   </div>`;
   h += `<div class="note" style="margin-top:12px">
     <b>「来店待ち」</b>は、次回予約を取ったものの<b>来店日がまだ先</b>で、
@@ -189,6 +191,7 @@ function rebookBlock(x, s) {
     いっぽう、<b>この月に来店・会計した</b>次回予約は <b>${x.rebook}件</b>（お会計の ${pct(x.rebook_rate)}）。
     先月以前に取った分が含まれるため、数が違います。</div>`;
   h += `<p class="mini" style="margin-top:8px">
+    <b>取得率</b>＝ その月に初めてご来店されたお客様のうち、次回予約を取れた方の割合です。<br>
     数え方：ビューティーメリットの<b>次回予約タブ</b>から取れた分のうち、
     <b>初めてご来店されたお客様から、その場で取れたもの</b>だけを数えています
     （電話予約枠と、枠止めの手打ちは含みません）。</p>`;
@@ -319,6 +322,9 @@ function renderRank() {
     ['新規率', x => pct(x.new_rate)],
     ['指名率', x => pct(x.nom_rate)],
     ['フリー予約', x => `${x.free_count}件 ${pct(x.free_rate)}`],
+    ['次回予約 取得率', x => x.rebook_made && x.rebook_made.take_rate !== null ? pct(x.rebook_made.take_rate) : '—',
+      x => !x.rebook_made || x.rebook_made.take_rate === null ? 0
+           : (x.rebook_made.take_rate >= T.rebook_rate ? 1 : (x.rebook_made.take_rate < 1 ? -1 : 0))],
     ['次回予約を取った', x => x.rebook_made ? `${x.rebook_made.made}件` : '—'],
     ['うち来店', x => x.rebook_made && x.rebook_made.made ? `${x.rebook_made.done}件` : '—'],
     ['次回予約で来店', x => `${x.rebook}件 ${pct(x.rebook_rate)}`, x => x.rebook_rate >= T.rebook_rate ? 1 : (x.rebook_rate <= .5 ? -1 : 0)],
@@ -344,6 +350,7 @@ function renderRank() {
   h += `<tr class="total"><td>店舗全体</td><td>${yen(s.gross)}円</td><td>${yen(s.net)}円</td><td>${s.customers}</td>
     <td>${yen(s.avg)}円</td><td>${pct(s.new_rate)}</td><td>${pct(s.nom_rate)}</td>
     <td>${s.free_count}件 ${pct(s.free_rate)}</td>
+    <td>${s.rebook_made && s.rebook_made.take_rate !== null ? pct(s.rebook_made.take_rate) : '—'}</td>
     <td>${s.rebook_made ? s.rebook_made.made + '件' : '—'}</td>
     <td>${s.rebook_made ? s.rebook_made.done + '件' : '—'}</td>
     <td>${s.rebook}件 ${pct(s.rebook_rate)}</td><td>${pct(s.treat_rate)}</td>
@@ -351,12 +358,22 @@ function renderRank() {
     <td>${pct(s.goods_buy_rate)}</td><td>${yen(s.goods_per_buyer)}円</td>
     <td>${yen(s.goods_per)}円</td></tr></tbody></table></div></section>`;
 
-  h += `<section><h2>次回予約率</h2><p class="lede">目標は10%です。</p><div class="panel routes">` +
-    [...d.stylists].sort((a, b) => b.rebook_rate - a.rebook_rate).map(x =>
-      `<div class="r"><b>${esc(x.name)}</b>
-       <div class="bar"><i style="width:${Math.min(100, x.rebook_rate / T.rebook_rate * 100).toFixed(1)}%;
-         background:var(--${x.rebook_rate >= T.rebook_rate ? 'good' : x.rebook_rate >= 3 ? 'accent' : 'warn'})"></i></div>
-       <span class="num">${x.rebook}件 ${pct(x.rebook_rate)}</span></div>`).join('') + `</div></section>`;
+  const sr = s.rebook_made;
+  const rank = [...d.stylists]
+    .map(x => ({n: x.name, f: x.rebook_made}))
+    .filter(r => r.f && r.f.first_visits)
+    .sort((a, b) => (b.f.take_rate ?? -1) - (a.f.take_rate ?? -1));
+  const maxR = Math.max(T.rebook_rate, ...rank.map(r => r.f.take_rate || 0), 1);
+  h += `<section><h2>次回予約 取得率ランキング</h2>
+    <p class="lede">初めてご来店されたお客様のうち、その場で次回予約を取れた割合です。目標は${T.rebook_rate}%。
+    ${sr && sr.take_rate !== null ? `店舗全体は ${pct(sr.take_rate)}（初回来店 ${sr.first_visits}人中 ${sr.made}件）。` : ''}</p>
+    <div class="panel routes">` +
+    (rank.length ? rank.map((r, i) =>
+      `<div class="r"><b>${i + 1}. ${esc(r.n)}</b>
+       <div class="bar"><i style="width:${Math.min(100, (r.f.take_rate || 0) / maxR * 100).toFixed(1)}%;
+         background:var(--${(r.f.take_rate || 0) >= T.rebook_rate ? 'good' : (r.f.take_rate || 0) >= T.rebook_rate / 2 ? 'accent' : 'warn'})"></i></div>
+       <span class="num">${r.f.take_rate !== null ? pct(r.f.take_rate) : '—'}　${r.f.made}件／${r.f.first_visits}人</span></div>`).join('')
+     : '<p class="mini">この月のデータがありません。</p>') + `</div></section>`;
   return h;
 }
 
