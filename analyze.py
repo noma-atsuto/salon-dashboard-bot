@@ -49,18 +49,20 @@ def load_rebook():
 def mark_first_visit(rb, df):
     """次回予約を「初回来店のお客様から取れたもの」に絞るための印をつける。
 
-    予約一覧には新規/再来の別が無いので、打った日のお会計を会計明細から探し、
-    そのときのお客様が新規だったかどうかで判定する。
+    判定は来店回数で行う。お客様ごとに来店日を並べ、その日が1回目の来店であれば
+    「初回」とみなす。打った日のお会計を会計明細から探して突き合わせる。
     （日付をまたいで深夜に打った場合に備え、前日まで見る）
     """
     if rb.empty:
         rb["初回"] = []
         return rb
-    bills = _bills(df)[["客ID名", "来店日", "新規再来"]].dropna(subset=["来店日"])
-    firsts = set()
-    for cid, day, kind in zip(bills["客ID名"], bills["来店日"], bills["新規再来"]):
-        if kind == "新規" and cid:
-            firsts.add((cid, day.date()))
+    bills = _bills(df)[["客ID名", "来店日"]].dropna(subset=["来店日"])
+    # お客様ごとに、来店日を古い順に並べる（同じ日の複数会計は1回と数える）
+    seq = collections.defaultdict(set)
+    for cid, day in zip(bills["客ID名"], bills["来店日"]):
+        if cid:
+            seq[cid].add(day.date())
+    firsts = {(cid, min(days)) for cid, days in seq.items() if days}
     made_day = pd.to_datetime(rb["打った日時"].astype(str).str.slice(0, 10), errors="coerce")
     flags = []
     for cid, d0 in zip(rb["客ID名"].fillna("").astype(str), made_day):

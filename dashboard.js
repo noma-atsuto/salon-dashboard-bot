@@ -169,26 +169,29 @@ function breakdown(x) {
 function rebookBlock(x, s) {
   const f = x.rebook_made;
   const made = f ? f.made : 0;
+  const judged = f ? f.made - f.upcoming : 0;
   let h = `<div class="strip" style="margin-top:0">
-    <div><div class="k">この月に打った件数</div><div class="v">${made}<span style="font-size:.62em">件</span></div>
-      <div class="d">次回予約として入力した分</div></div>
+    <div><div class="k">この月に取った件数</div><div class="v">${made}<span style="font-size:.62em">件</span></div>
+      <div class="d">初回来店のお客様から</div></div>
     <div><div class="k">来店・会計した</div><div class="v">${f ? f.done : 0}<span style="font-size:.62em">件</span></div>
-      <div class="d">${f && f.show_rate !== null ? '来店率 ' + f.show_rate.toFixed(0) + '%' : '—'}</div></div>
+      <div class="d">${f && f.show_rate !== null ? '来店率 ' + f.show_rate.toFixed(0) + '%' : '結果はこれから'}</div></div>
     <div><div class="k">キャンセル</div><div class="v">${f ? f.cancelled : 0}<span style="font-size:.62em">件</span></div>
-      <div class="d">${f && made ? (f.cancelled / made * 100).toFixed(0) + '%' : '—'}</div></div>
-    <div><div class="k">これから</div><div class="v">${f ? f.upcoming : 0}<span style="font-size:.62em">件</span></div>
+      <div class="d">${judged ? (f.cancelled / judged * 100).toFixed(0) + '%' : '—'}</div></div>
+    <div><div class="k">来店待ち</div><div class="v">${f ? f.upcoming : 0}<span style="font-size:.62em">件</span></div>
       <div class="d">来店日がまだ先</div></div>
   </div>`;
-  const ex = f ? (f.ex_dummy || 0) + (f.ex_other || 0) : 0;
   h += `<div class="note" style="margin-top:12px">
-    上は<b>この月に打った</b>次回予約が、その後どうなったかです。<br>
+    <b>「来店待ち」</b>は、次回予約を取ったものの<b>来店日がまだ先</b>で、
+    来るかキャンセルかが決まっていない分です。来店率の計算からは外しています
+    （${judged}件が判定済み）。</div>`;
+  h += `<div class="note" style="margin-top:9px">
+    上は<b>この月に取った</b>次回予約のその後です。<br>
     いっぽう、<b>この月に来店・会計した</b>次回予約は <b>${x.rebook}件</b>（お会計の ${pct(x.rebook_rate)}）。
-    先月以前に打った分が含まれるため、数が違います。</div>`;
+    先月以前に取った分が含まれるため、数が違います。</div>`;
   h += `<p class="mini" style="margin-top:8px">
-    数え方：ビューティーメリットの<b>次回予約タブから打たれた分</b>だけを見ています（電話予約枠は含みません）。
-    そのうち<b>初めてご来店されたお客様から、その場で取れた分</b>に絞っています。
-    ${ex ? `この月は ${f.raw}件のうち ${ex}件を対象外にしました
-      （枠止めの手打ち ${f.ex_dummy}件／再来のお客様・別日入力 ${f.ex_other}件）。` : ''}</p>`;
+    数え方：ビューティーメリットの<b>次回予約タブ</b>から取れた分のうち、
+    <b>初めてご来店されたお客様から、その場で取れたもの</b>だけを数えています
+    （電話予約枠と、枠止めの手打ちは含みません）。</p>`;
   return h;
 }
 
@@ -270,7 +273,7 @@ function renderStore() {
     </section>`;
 
   h += `<section><h2>次回予約</h2>
-    <p class="lede">手で入力した次回予約を、打った月ごとに追いかけています。</p>
+    <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
     ${rebookBlock(s, s)}</section>`;
 
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
@@ -316,7 +319,7 @@ function renderRank() {
     ['新規率', x => pct(x.new_rate)],
     ['指名率', x => pct(x.nom_rate)],
     ['フリー予約', x => `${x.free_count}件 ${pct(x.free_rate)}`],
-    ['次回予約を打った', x => x.rebook_made ? `${x.rebook_made.made}件` : '—'],
+    ['次回予約を取った', x => x.rebook_made ? `${x.rebook_made.made}件` : '—'],
     ['うち来店', x => x.rebook_made && x.rebook_made.made ? `${x.rebook_made.done}件` : '—'],
     ['次回予約で来店', x => `${x.rebook}件 ${pct(x.rebook_rate)}`, x => x.rebook_rate >= T.rebook_rate ? 1 : (x.rebook_rate <= .5 ? -1 : 0)],
     ['トリートメント', x => pct(x.treat_rate), x => x.treat_rate >= T.treat_rate ? 1 : (x.treat_rate <= 1 ? -1 : 0)],
@@ -378,7 +381,7 @@ function renderPerson() {
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
   </div>`;
   h += `<section><h2>次回予約</h2>
-    <p class="lede">手で入力した次回予約を、打った月ごとに追いかけています。</p>
+    <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
     ${rebookBlock(x, s)}</section>`;
 
   h += `<section><h2>日ごとの売上</h2>
