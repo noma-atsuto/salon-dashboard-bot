@@ -373,8 +373,9 @@ def build():
 #          （一度は実際に出している数字なので、強気だが再現できる）
 #   目標 = 基準 × GROWTH × その月の出勤日数
 # 季節（繁忙期・閑散期）は目標には掛けない。参考の指標として画面に出すだけ。
-GROWTH = 1.05
-LOOKBACK = 6          # さかのぼる月数（集計が終わった月のみ）
+GROWTH = 1.15
+LOOKBACK = 6              # さかのぼる月数（集計が終わった月のみ）
+STORE_FLOOR = 10_500_000  # 店舗の月間目標の下限（総売上）。出勤が少ない月でもここは下回らない
 
 
 def seasonal_index():
@@ -450,8 +451,19 @@ def build_targets(out, sh, months):
             if sub:
                 share.append(tot / sub)
         ratio = sum(share) / len(share) if share else 1.0
+        store_goal = total * ratio
+        floored = False
+        if STORE_FLOOR and store_goal < STORE_FLOOR:
+            # 下限に届かない月は、全員の目標を同じ割合で引き上げる
+            scale = STORE_FLOOR / store_goal
+            for v in people.values():
+                v["target"] *= scale
+                v["base_per_day"] *= scale
+            store_goal = STORE_FLOOR
+            floored = True
         entry["target"] = {
-            "store": total * ratio, "store_days": planned_store,
+            "store": store_goal, "store_days": planned_store, "floored": floored,
+            "floor": STORE_FLOOR,
             "stylists": people, "growth": GROWTH, "months_used": len(past),
             "based_on": past, "season": sfac(mo),
             "season_table": {str(k): v for k, v in sorted(season.items())},

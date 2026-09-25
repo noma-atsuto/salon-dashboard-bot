@@ -476,7 +476,7 @@ function renderGoal() {
 
   h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の総売上目標（店舗）</div>
     <div class="big">${yen(t.store)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">出勤のべ ${planDays}日ぶん</div>
+    <div class="sub">出勤のべ ${planDays}日ぶん${t.floored ? `　（下限 ${yen(t.floor)}円を適用）` : ''}</div>
     <div class="track" style="margin-top:14px;height:12px">
       <i class="${rate >= 100 ? 'ok' : rate >= 80 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>
     <div class="sub" style="margin-top:8px">総売上 <b>${yen(act)}円</b>　達成率 <b>${pct(rate)}</b>
@@ -527,7 +527,9 @@ function renderGoal() {
     <b>いちばん良かった月の「1日あたり総売上」</b>を基準にしています。
     平均ではなく最高の月を使うので強気ですが、<b>一度は実際に出している数字</b>なので届く目標です。</p>
     <div class="note">1人の目標 ＝ いちばん良かった月の1日あたり総売上${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
-      店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの</div>
+      店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの<br>
+      ただし店舗の目標は <b>${yen(t.floor)}円</b> を下限とし、下回る月は全員の目標を同じ割合で引き上げます
+      ${t.floored ? '（<b>今月は下限を適用しています</b>）' : ''}</div>
     <p class="mini" style="margin-top:10px">季節（繁忙期・閑散期）は目標には掛けていません。
     実績そのものから決めています。季節は下の表で<b>参考</b>としてご覧ください。</p>
     </div></section>`;
