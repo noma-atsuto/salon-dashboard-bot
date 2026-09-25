@@ -43,7 +43,18 @@ def _hash_customer(df):
         "" if not k.strip("|") else hashlib.sha256((SALT + k).encode("utf-8")).hexdigest()[:16]
         for k in key
     ]
+    # 予約一覧にはカナが無いので、氏名だけの符号も作って突き合わせに使う
+    df["客ID名"] = [name_key(v) for v in name.fillna("").astype(str)]
     return df
+
+
+def name_key(v):
+    """氏名から空白を取り除いて符号にする。予約一覧側と同じ作り方にすること。"""
+    import hashlib, re
+    core = re.sub(r"[\s　]+", "", str(v)).strip()
+    if not core:
+        return ""
+    return hashlib.sha256((SALT + "N|" + core).encode("utf-8")).hexdigest()[:16]
 
 
 def rng(y, m):

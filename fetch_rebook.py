@@ -13,6 +13,14 @@ from bm_client import BeautyMeritClient
 from bs4 import BeautifulSoup
 
 CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+SALT = "aitokyo-ikebukuro-2026"      # fetch_detail.py と同じにすること
+
+
+def _name_key(core):
+    import hashlib
+    if not core:
+        return ""
+    return hashlib.sha256((SALT + "N|" + core).encode("utf-8")).hexdigest()[:16]
 ROUTE_REBOOK = "8"        # 予約経路「次回予約」
 PAGE_SIZE = 20
 TODAY = datetime.date.today()
@@ -28,6 +36,28 @@ def target_months(back=6):
     return list(reversed(out))
 
 
+def _clean_name(cell_text):
+    """「五嶋 将孝 会員 12345」のような表示から、氏名だけを取り出す"""
+    t = re.sub(r"会員", " ", str(cell_text))
+    t = re.sub(r"[0-9０-９]+", " ", t)
+    return re.sub(r"[\s　]+", "", t).strip()
+
+
+def _is_dummy(name, is_member):
+    """予約制限のために手で打たれた行（「あ　あ」など）を見分ける"""
+    if not name:
+        return True
+    if is_member:
+        return False
+    # 会員でなく、かな1〜2文字だけなら、お客様ではなく枠止めとみなす
+    if len(name) <= 2 and re.fullmatch(r"[ぁ-んァ-ヶー]+", name):
+        return True
+    # 同じ文字だけでできている（ああ、いいい など）
+    if len(set(name)) == 1 and len(name) <= 3:
+        return True
+    return False
+
+
 def _rows(soup):
     for t in soup.find_all("table"):
         head = t.find("tr")
@@ -39,6 +69,8 @@ def _rows(soup):
             if len(c) < 10:
                 continue
             txt = lambda i: c[i].get_text(" ", strip=True)
+            raw = txt(5)
+            name = _clean_name(raw)
             out.append({
                 "予約番号": txt(1).split()[0] if txt(1) else "",
                 "会計済": "会計済" in txt(1),
@@ -46,7 +78,10 @@ def _rows(soup):
                 "打った日時": txt(3),
                 "来店日時": txt(4),
                 "スタッフ": txt(6),
-            })   # お客様名は取り込まない
+                "会員": "会員" in raw,
+                "枠止め": _is_dummy(name, "会員" in raw),
+                "客ID名": _name_key(name),
+            })   # お客様名そのものは保存しない
         return out
     return []
 
@@ -84,7 +119,7 @@ def main():
             client.login()
         total, rows = fetch_month(client, y, m)
         df = pd.DataFrame(rows, columns=["予約番号", "会計済", "ステータス", "打った日時",
-                                         "来店日時", "スタッフ"])
+                                         "来店日時", "スタッフ", "会員", "枠止め", "客ID名"])
         df.insert(0, "月", f"{y}-{m:02d}")
         tmp = path + ".tmp"
         df.to_csv(tmp, index=False, encoding="utf-8")

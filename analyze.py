@@ -46,16 +46,57 @@ def load_rebook():
     return df
 
 
+def mark_first_visit(rb, df):
+    """次回予約を「初回来店のお客様から取れたもの」に絞るための印をつける。
+
+    予約一覧には新規/再来の別が無いので、打った日のお会計を会計明細から探し、
+    そのときのお客様が新規だったかどうかで判定する。
+    （日付をまたいで深夜に打った場合に備え、前日まで見る）
+    """
+    if rb.empty:
+        rb["初回"] = []
+        return rb
+    bills = _bills(df)[["客ID名", "来店日", "新規再来"]].dropna(subset=["来店日"])
+    firsts = set()
+    for cid, day, kind in zip(bills["客ID名"], bills["来店日"], bills["新規再来"]):
+        if kind == "新規" and cid:
+            firsts.add((cid, day.date()))
+    made_day = pd.to_datetime(rb["打った日時"].astype(str).str.slice(0, 10), errors="coerce")
+    flags = []
+    for cid, d0 in zip(rb["客ID名"].fillna("").astype(str), made_day):
+        ok = False
+        if cid and pd.notna(d0):
+            base = d0.date()
+            ok = (cid, base) in firsts or (cid, base - datetime.timedelta(days=1)) in firsts
+        flags.append(ok)
+    rb = rb.copy()
+    rb["初回"] = flags
+    return rb
+
+
 def rebook_funnel(rb, month, staff=None):
-    """その月に打った次回予約が、その後どうなったか"""
+    """その月に打った次回予約が、その後どうなったか。
+
+    対象は「次回予約タブから打たれたもの」だけ（電話予約枠は取得していない）。
+    さらに、枠止めの手打ちを除き、初回来店のお客様から取れた分に絞る。
+    """
     if rb.empty:
         return None
-    d = rb[rb["月"] == month]
+    raw = rb[rb["月"] == month]
     if staff is not None:
-        d = d[d["スタッフ"] == staff]
+        raw = raw[raw["スタッフ"] == staff]
+    d = raw[~raw["枠止め"].astype(bool)]
+    ex_dummy = len(raw) - len(d)
+    if "初回" in d.columns:
+        before = len(d)
+        d = d[d["初回"].astype(bool)]
+        ex_other = before - len(d)
+    else:
+        ex_other = 0
     made = len(d)
+    base = {"raw": len(raw), "ex_dummy": ex_dummy, "ex_other": ex_other}
     if made == 0:
-        return {"made": 0, "done": 0, "cancelled": 0, "upcoming": 0, "show_rate": None}
+        return {**base, "made": 0, "done": 0, "cancelled": 0, "upcoming": 0, "show_rate": None}
     done = int(d["会計済"].astype(bool).sum())
     cancelled = int(d["ステータス"].astype(str).str.contains("キャンセル", na=False).sum())
     today = pd.Timestamp(datetime.date.today())
@@ -63,7 +104,7 @@ def rebook_funnel(rb, month, staff=None):
                     & (~d["ステータス"].astype(str).str.contains("キャンセル", na=False))
                     & (d["来店日"] > today)).sum())
     judged = made - upcoming
-    return {"made": made, "done": done, "cancelled": cancelled, "upcoming": upcoming,
+    return {**base, "made": made, "done": done, "cancelled": cancelled, "upcoming": upcoming,
             "show_rate": (done / judged * 100) if judged else None}
 
 
@@ -225,7 +266,7 @@ def _return_rate(all_df, month, idx, staff=None):
 
 def build():
     df = load()
-    rb = load_rebook()
+    rb = mark_first_visit(load_rebook(), df)
     idx = _visit_index(df)
     months = sorted(df["月"].unique())
     out = {}

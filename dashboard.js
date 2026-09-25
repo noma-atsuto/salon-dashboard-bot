@@ -179,10 +179,16 @@ function rebookBlock(x, s) {
     <div><div class="k">これから</div><div class="v">${f ? f.upcoming : 0}<span style="font-size:.62em">件</span></div>
       <div class="d">来店日がまだ先</div></div>
   </div>`;
+  const ex = f ? (f.ex_dummy || 0) + (f.ex_other || 0) : 0;
   h += `<div class="note" style="margin-top:12px">
     上は<b>この月に打った</b>次回予約が、その後どうなったかです。<br>
     いっぽう、<b>この月に来店・会計した</b>次回予約は <b>${x.rebook}件</b>（お会計の ${pct(x.rebook_rate)}）。
     先月以前に打った分が含まれるため、数が違います。</div>`;
+  h += `<p class="mini" style="margin-top:8px">
+    数え方：ビューティーメリットの<b>次回予約タブから打たれた分</b>だけを見ています（電話予約枠は含みません）。
+    そのうち<b>初めてご来店されたお客様から、その場で取れた分</b>に絞っています。
+    ${ex ? `この月は ${f.raw}件のうち ${ex}件を対象外にしました
+      （枠止めの手打ち ${f.ex_dummy}件／再来のお客様・別日入力 ${f.ex_other}件）。` : ''}</p>`;
   return h;
 }
 
