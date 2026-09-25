@@ -342,7 +342,10 @@ function renderRank() {
   let h = partial();
   h += `<section><h2>スタイリスト比較</h2>
     <p class="lede">緑は目標達成または店舗平均より良いところ、赤は伸びしろがあるところです。横にスクロールできます。<br>
-    「出勤」はお会計が1件でもあった日を数えています。<br>「店舗全体」の行には、フリー枠など一覧に出ていないスタッフの分も含まれます。</p>
+    「出勤」は${s.workday_source === 'shift'
+      ? '<b>予約枠を開けている日</b>を数えています（枠を閉じている日は休み）'
+      : '<b>お会計が1件でもあった日</b>を数えています。この月はシフトの記録が無いため、この数え方です'}。<br>
+    「店舗全体」の行には、フリー枠など一覧に出ていないスタッフの分も含まれます。</p>
     <div class="tbl"><table><thead><tr><th>スタイリスト</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>`;
   d.stylists.forEach(x => {
     h += `<tr><td>${esc(x.name)}</td>` + cols.map(c => {
