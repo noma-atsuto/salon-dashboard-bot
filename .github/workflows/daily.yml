@@ -47,7 +47,9 @@ jobs:
           BM_LOGIN_ID: ${{ secrets.BM_LOGIN_ID }}
           BM_PASSWORD: ${{ secrets.BM_PASSWORD }}
           TZ: Asia/Tokyo
-        run: python fetch_detail.py
+        run: |
+          python fetch_detail.py
+          python fetch_rebook.py
 
       - name: ページを作る（合言葉つき）
         env:

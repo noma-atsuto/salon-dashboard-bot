@@ -30,6 +30,7 @@ def build_payload():
             "end": end, "partial": end != last,
             "store": {**{k: s[k] for k in KEYS}, **{k: s.get(k) for k in STORE_ONLY},
                       "return": s.get("return"), "daily": s.get("daily", []),
+                      "rebook_made": s.get("rebook_made"),
                       "detail": s.get("detail", {}),
                       "routes": s["routes"], "payments": s["payments"]},
             "top_goods": data[m]["top_goods"], "top_menus": data[m]["top_menus"],
@@ -42,6 +43,7 @@ def build_payload():
             entry["stylists"].append({
                 "name": name, **{k: p[k] for k in KEYS}, "return": p.get("return"),
                 "routes": p["routes"], "daily": p.get("daily", []), "detail": p.get("detail", {}),
+                "rebook_made": p.get("rebook_made"),
                 "feedback": feedback.stylist_feedback(p, s, pv),
             })
         payload["data"][m] = entry

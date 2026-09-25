@@ -165,6 +165,27 @@ function breakdown(x) {
     </div>`;
 }
 
+/* 次回予約：打った分と、その後どうなったか */
+function rebookBlock(x, s) {
+  const f = x.rebook_made;
+  const made = f ? f.made : 0;
+  let h = `<div class="strip" style="margin-top:0">
+    <div><div class="k">この月に打った件数</div><div class="v">${made}<span style="font-size:.62em">件</span></div>
+      <div class="d">次回予約として入力した分</div></div>
+    <div><div class="k">来店・会計した</div><div class="v">${f ? f.done : 0}<span style="font-size:.62em">件</span></div>
+      <div class="d">${f && f.show_rate !== null ? '来店率 ' + f.show_rate.toFixed(0) + '%' : '—'}</div></div>
+    <div><div class="k">キャンセル</div><div class="v">${f ? f.cancelled : 0}<span style="font-size:.62em">件</span></div>
+      <div class="d">${f && made ? (f.cancelled / made * 100).toFixed(0) + '%' : '—'}</div></div>
+    <div><div class="k">これから</div><div class="v">${f ? f.upcoming : 0}<span style="font-size:.62em">件</span></div>
+      <div class="d">来店日がまだ先</div></div>
+  </div>`;
+  h += `<div class="note" style="margin-top:12px">
+    上は<b>この月に打った</b>次回予約が、その後どうなったかです。<br>
+    いっぽう、<b>この月に来店・会計した</b>次回予約は <b>${x.rebook}件</b>（お会計の ${pct(x.rebook_rate)}）。
+    先月以前に打った分が含まれるため、数が違います。</div>`;
+  return h;
+}
+
 function goal(label, value, target, fmt, invert) {
   const hit = invert ? value <= target : value >= target;
   const w = invert ? Math.min(100, target / Math.max(value, .01) * 100)
@@ -242,6 +263,10 @@ function renderStore() {
     <div id="bs-list" hidden><div class="panel">${breakdownDetail(s, 'bs')}</div></div>
     </section>`;
 
+  h += `<section><h2>次回予約</h2>
+    <p class="lede">手で入力した次回予約を、打った月ごとに追いかけています。</p>
+    ${rebookBlock(s, s)}</section>`;
+
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
   const tot = rs.reduce((a, b) => a + b[1], 0) || 1;
   h += `<section><h2>ご予約はどこから入っているか</h2>
@@ -285,7 +310,9 @@ function renderRank() {
     ['新規率', x => pct(x.new_rate)],
     ['指名率', x => pct(x.nom_rate)],
     ['フリー予約', x => `${x.free_count}件 ${pct(x.free_rate)}`],
-    ['次回予約', x => `${x.rebook}件 ${pct(x.rebook_rate)}`, x => x.rebook_rate >= T.rebook_rate ? 1 : (x.rebook_rate <= .5 ? -1 : 0)],
+    ['次回予約を打った', x => x.rebook_made ? `${x.rebook_made.made}件` : '—'],
+    ['うち来店', x => x.rebook_made && x.rebook_made.made ? `${x.rebook_made.done}件` : '—'],
+    ['次回予約で来店', x => `${x.rebook}件 ${pct(x.rebook_rate)}`, x => x.rebook_rate >= T.rebook_rate ? 1 : (x.rebook_rate <= .5 ? -1 : 0)],
     ['トリートメント', x => pct(x.treat_rate), x => x.treat_rate >= T.treat_rate ? 1 : (x.treat_rate <= 1 ? -1 : 0)],
     ['リターン率', x => x.return ? pct(x.return.rate) : '—',
       x => !x.return ? 0 : (x.return.rate >= T.return_rate ? 1 : (x.return.rate <= (s.return?.rate ?? 0) * .6 ? -1 : 0))],
@@ -308,6 +335,8 @@ function renderRank() {
   h += `<tr class="total"><td>店舗全体</td><td>${yen(s.gross)}円</td><td>${yen(s.net)}円</td><td>${s.customers}</td>
     <td>${yen(s.avg)}円</td><td>${pct(s.new_rate)}</td><td>${pct(s.nom_rate)}</td>
     <td>${s.free_count}件 ${pct(s.free_rate)}</td>
+    <td>${s.rebook_made ? s.rebook_made.made + '件' : '—'}</td>
+    <td>${s.rebook_made ? s.rebook_made.done + '件' : '—'}</td>
     <td>${s.rebook}件 ${pct(s.rebook_rate)}</td><td>${pct(s.treat_rate)}</td>
     <td>${s.return ? pct(s.return.rate) : '—'}</td><td>${yen(s.goods)}円</td>
     <td>${pct(s.goods_buy_rate)}</td><td>${yen(s.goods_per_buyer)}円</td>
@@ -342,6 +371,10 @@ function renderPerson() {
     <div><div class="k">客数</div><div class="v">${yen(x.customers)}</div><div class="d">${delta(x.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
   </div>`;
+  h += `<section><h2>次回予約</h2>
+    <p class="lede">手で入力した次回予約を、打った月ごとに追いかけています。</p>
+    ${rebookBlock(x, s)}</section>`;
+
   h += `<section><h2>日ごとの売上</h2>
     <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
     <div class="panel">${dailyBlock(x.daily, 'dp')}</div></section>`;

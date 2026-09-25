@@ -7,7 +7,7 @@
     商品  … 店販
     その他 … 指名料・利用ポイント
 """
-import collections, glob, os, re
+import collections, datetime, glob, os, re
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +30,41 @@ def load():
     df["施術担当者"] = df["施術担当者"].fillna("").astype(str).str.strip()
     df["項目名"] = df["項目名"].fillna("").astype(str)
     return df
+
+
+def load_rebook():
+    """打った月ごとの次回予約。無ければ空で返す"""
+    frames = []
+    for path in sorted(glob.glob(os.path.join(CACHE, "rebook_*.csv"))):
+        frames.append(pd.read_csv(path))
+    if not frames:
+        return pd.DataFrame(columns=["月", "会計済", "ステータス", "来店日時", "スタッフ"])
+    df = pd.concat(frames, ignore_index=True)
+    df["スタッフ"] = df["スタッフ"].fillna("").astype(str).str.strip()
+    df["来店日"] = pd.to_datetime(
+        df["来店日時"].astype(str).str.slice(0, 10), errors="coerce")
+    return df
+
+
+def rebook_funnel(rb, month, staff=None):
+    """その月に打った次回予約が、その後どうなったか"""
+    if rb.empty:
+        return None
+    d = rb[rb["月"] == month]
+    if staff is not None:
+        d = d[d["スタッフ"] == staff]
+    made = len(d)
+    if made == 0:
+        return {"made": 0, "done": 0, "cancelled": 0, "upcoming": 0, "show_rate": None}
+    done = int(d["会計済"].astype(bool).sum())
+    cancelled = int(d["ステータス"].astype(str).str.contains("キャンセル", na=False).sum())
+    today = pd.Timestamp(datetime.date.today())
+    upcoming = int(((~d["会計済"].astype(bool))
+                    & (~d["ステータス"].astype(str).str.contains("キャンセル", na=False))
+                    & (d["来店日"] > today)).sum())
+    judged = made - upcoming
+    return {"made": made, "done": done, "cancelled": cancelled, "upcoming": upcoming,
+            "show_rate": (done / judged * 100) if judged else None}
 
 
 def _slice(d):
@@ -190,6 +225,7 @@ def _return_rate(all_df, month, idx, staff=None):
 
 def build():
     df = load()
+    rb = load_rebook()
     idx = _visit_index(df)
     months = sorted(df["月"].unique())
     out = {}
@@ -197,6 +233,7 @@ def build():
         d = df[df["月"] == mo]
         store = _metrics(d)
         store["return"] = _return_rate(df, mo, idx)
+        store["rebook_made"] = rebook_funnel(rb, mo)
         store["end"] = str(d["来店日"].max().date())
         people = {}
         for name, g in d.groupby("施術担当者"):
@@ -206,6 +243,7 @@ def build():
             if p["customers"] < 20:
                 continue
             p["return"] = _return_rate(df, mo, idx, name)
+            p["rebook_made"] = rebook_funnel(rb, mo, name)
             people[name] = p
         store["headcount"] = len(people)
         out[mo] = {"store": store, "stylists": people,
