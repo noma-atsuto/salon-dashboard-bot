@@ -39,8 +39,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: cache
-          key: bm-cache-${{ github.run_id }}
-          restore-keys: bm-cache-
+          key: bm-cache-v2-${{ github.run_id }}
+          restore-keys: bm-cache-v2-
 
       - name: ビューティーメリットからデータを取得
         env:
