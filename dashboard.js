@@ -53,15 +53,41 @@ function chart(key, isStore, unit) {
     stroke-width=".3"></line>${bars}${labs}</svg>`;
 }
 
+const DAILY = {};
+
 /* 日別：グラフと一覧を切り替えられる形で返す */
 function dailyBlock(rows, id) {
   if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
+  DAILY[id] = rows;
+  let sel = 0;
+  rows.forEach((r, i) => { if (r[2] > rows[sel][2]) sel = i; });   // 最初はいちばん売れた日
   return `<div class="switch">
       <button type="button" class="dtab" data-t="${id}" data-v="chart" aria-selected="true">グラフ</button>
       <button type="button" class="dtab" data-t="${id}" data-v="list" aria-selected="false">一覧</button>
     </div>
-    <div id="${id}-chart">${daily(rows)}</div>
+    <div id="${id}-chart">${daily(rows, id, sel)}</div>
     <div id="${id}-list" hidden>${dailyTable(rows)}</div>`;
+}
+
+/* タップした日の数字を見やすく出す */
+function dayInfo(rows, id, sel) {
+  const r = rows[sel];
+  if (!r) return '';
+  const [d, gr, v, c, g] = r;
+  const y = Number(month.slice(0, 4)), mo = Number(month.slice(5));
+  const w = new Date(y, mo - 1, d).getDay();
+  const head = `<div class="dhead">${mo}月${d}日<span class="wd ${w === 0 ? 'sun' : w === 6 ? 'sat' : ''}">（${WD[w]}）</span></div>`;
+  if (v === 0 && gr === 0) {
+    return `<div class="dayinfo">${head}
+      <div class="mini" style="margin-top:5px">この日はお会計がありません。</div></div>`;
+  }
+  return `<div class="dayinfo">${head}<div class="dgrid">
+      <div><span>総売上</span><b>${yen(gr)}円</b></div>
+      <div><span>純売上</span><b>${yen(v)}円</b></div>
+      <div><span>客数</span><b>${c}人</b></div>
+      <div><span>客単価</span><b>${c ? yen(v / c) : 0}円</b></div>
+      <div><span>店販</span><b>${yen(g)}円</b></div>
+    </div></div>`;
 }
 
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
@@ -91,7 +117,7 @@ function dailyTable(rows) {
 }
 
 /* 日別の売上（棒グラフ） */
-function daily(rows) {
+function daily(rows, id, sel) {
   if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
   const max = Math.max(...rows.map(r => r[2]), 1);
   const W = 100, H = 26, n = rows.length, gap = 0.5;
@@ -102,13 +128,17 @@ function daily(rows) {
     const [d, gr, v, c] = r;
     const h = Math.max(v > 0 ? 0.8 : 0.3, v / max * (H - 5));
     const x = i * (bw + gap);
-    const top = v === best[1] && v > 0;
-    bars += `<rect x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}"
-      height="${h.toFixed(2)}" rx=".5" fill="var(--${v === 0 ? 'line2' : top ? 'accent' : 'line'})"
+    const on = i === sel;
+    bars += `<rect class="dbar" data-t="${id}" data-i="${i}" x="${(x - gap / 2).toFixed(2)}" y="-4"
+      width="${(bw + gap).toFixed(2)}" height="${H + 4}" fill="transparent"></rect>`;
+    bars += `<rect class="dbar" data-t="${id}" data-i="${i}" x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}"
+      width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx=".5"
+      fill="var(--${v === 0 ? 'line2' : on ? 'accent' : 'line'})"
       ><title>${d}日　純売上 ${yen(v)}円　${c}人</title></rect>`;
     if (d === 1 || d % 5 === 0 || i === n - 1) {
-      labs += `<text x="${(x + bw / 2).toFixed(2)}" y="${H + 4}" text-anchor="middle"
-        font-size="2.9" fill="var(--ink3)">${d}</text>`;
+      labs += `<text class="dbar" data-t="${id}" data-i="${i}" x="${(x + bw / 2).toFixed(2)}"
+        y="${H + 4}" text-anchor="middle" font-size="2.9"
+        fill="var(--${on ? 'ink2' : 'ink3'})" font-weight="${on ? 700 : 400}">${d}</text>`;
     }
   });
   const sum = rows.reduce((a, b) => a + b[2], 0);
@@ -116,7 +146,9 @@ function daily(rows) {
   return `<svg class="chart" viewBox="-1 -2 ${W + 2} ${H + 8}" role="img"
     aria-label="日ごとの売上"><line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"
     stroke-width=".25"></line>${bars}${labs}</svg>
-    <p class="mini" style="margin-top:8px">棒は純売上です。出勤 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
+    ${dayInfo(rows, id, sel)}
+    <p class="mini" style="margin-top:8px">棒をタップすると、その日の数字が出ます。棒の高さは純売上です。<br>
+    営業 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
     いちばん多かったのは ${best[0]}日の ${yen(best[2])}円（${best[3]}人）</p>`;
 }
 
@@ -498,6 +530,13 @@ function render() {
 }
 
 document.getElementById('view').addEventListener('click', ev => {
+  const bar = ev.target.closest('.dbar');
+  if (bar) {
+    const id = bar.dataset.t, i = Number(bar.dataset.i);
+    const rows = DAILY[id];
+    if (rows && rows[i]) document.getElementById(id + '-chart').innerHTML = daily(rows, id, i);
+    return;
+  }
   const tab = ev.target.closest('.dtab');
   if (tab) {
     const id = tab.dataset.t, v = tab.dataset.v;

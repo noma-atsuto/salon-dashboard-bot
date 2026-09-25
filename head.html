@@ -131,7 +131,14 @@ tr.total td:first-child{background:var(--surface2)}
 
 /* ---- グラフ ---- */
 svg.chart{width:100%;height:auto;max-height:190px;display:block;overflow:visible}
-.mbar{cursor:pointer}
+.mbar,.dbar{cursor:pointer}
+.dayinfo{margin-top:14px;padding:13px 15px;border-radius:12px;background:var(--accent-soft);
+  border-left:3px solid var(--accent)}
+.dhead{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:10px 14px;margin-top:9px}
+.dgrid div{display:flex;flex-direction:column;gap:1px}
+.dgrid span{font-size:11px;color:var(--ink2);font-weight:600}
+.dgrid b{font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
 .switch{display:inline-flex;gap:2px;background:var(--line2);border-radius:9px;padding:3px;margin-bottom:12px}
 .switch button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 15px;border:0;border-radius:7px;
   background:none;color:var(--ink2);cursor:pointer;min-height:34px}
