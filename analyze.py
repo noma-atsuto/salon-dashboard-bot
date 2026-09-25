@@ -371,9 +371,9 @@ def build():
 # 目標の作り方
 #   基準 = 過去の「1日あたり総売上」のうち、いちばん良かった月の水準
 #          （一度は実際に出している数字なので、強気だが再現できる）
-#   目標 = 基準 × その月の出勤日数 × GROWTH
-# GROWTH を 1.00 にすると「最高の月を毎月続ける」が目標になる。
-GROWTH = 1.00
+#   目標 = 基準 × GROWTH × その月の出勤日数
+# 季節（繁忙期・閑散期）は目標には掛けない。参考の指標として画面に出すだけ。
+GROWTH = 1.05
 LOOKBACK = 6          # さかのぼる月数（集計が終わった月のみ）
 
 
@@ -432,12 +432,11 @@ def build_targets(out, sh, months):
                     if name in out[m]["stylists"] and out[m]["stylists"][name]["gross_per_day"]]
             if not vals:
                 continue
-            # 季節のクセを取り除いてから、いちばん良かった月を選ぶ
-            flat = [(m, v / sfac(m)) for m, v in vals]
-            best_m, best_flat = max(flat, key=lambda kv: kv[1])
+            # 実績そのままで、いちばん良かった月を基準にする（季節は掛けない）
+            best_m, best = max(vals, key=lambda kv: kv[1])
             avg = sum(v for _, v in vals) / len(vals)
             days = shift_days_planned(sh, mo, name) or p["workdays"]
-            base = best_flat * sfac(mo)          # その月の季節に合わせ直す
+            base = best
             goal = base * GROWTH * days
             people[name] = {"base_per_day": base, "avg_per_day": avg, "best_month": best_m,
                             "days": days, "target": goal, "actual": p["gross"],
