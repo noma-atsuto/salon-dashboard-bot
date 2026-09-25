@@ -16,7 +16,8 @@ def build_payload():
             "nominate_fee", "points", "customers", "new", "repeat", "avg", "new_rate",
             "repeat_rate", "nom_rate", "nom_count", "free_count", "free_rate",
             "rebook", "rebook_rate", "treat", "treat_rate",
-            "treat_sales", "app_rate", "hpb_rate", "first_visits")
+            "treat_sales", "app_rate", "hpb_rate", "first_visits",
+            "workdays", "net_per_day", "cust_per_day")
     # 売上の内訳（合計すると純売上になる）
     BREAKDOWN = ("tech", "goods", "nominate_fee", "discount", "points")
     STORE_ONLY = ("headcount",)

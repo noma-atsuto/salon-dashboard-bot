@@ -68,52 +68,56 @@ const WD = ['日', '月', '火', '水', '木', '金', '土'];
 
 function dailyTable(rows) {
   const y = Number(month.slice(0, 4)), mo = Number(month.slice(5));
-  const sum = rows.reduce((a, r) => [a[0] + r[1], a[1] + r[2], a[2] + r[3]], [0, 0, 0]);
+  const sum = rows.reduce((a, r) => [a[0] + r[1], a[1] + r[2], a[2] + r[3], a[3] + r[4]],
+                          [0, 0, 0, 0]);
   let h = `<div class="tbl"><table><thead><tr>
-    <th>日付</th><th>売上</th><th>客数</th><th>客単価</th><th>店販</th></tr></thead><tbody>`;
-  rows.forEach(([d, v, c, g]) => {
+    <th>日付</th><th>総売上</th><th>純売上</th><th>客数</th><th>客単価</th><th>店販</th>
+    </tr></thead><tbody>`;
+  rows.forEach(([d, gr, v, c, g]) => {
     const w = new Date(y, mo - 1, d).getDay();
-    const off = v === 0;
+    const off = v === 0 && gr === 0;
     h += `<tr${off ? ' style="opacity:.5"' : ''}>
       <td>${mo}/${d}<span class="wd ${w === 0 ? 'sun' : w === 6 ? 'sat' : ''}">（${WD[w]}）</span></td>
+      <td>${off ? '—' : yen(gr) + '円'}</td>
       <td>${off ? '—' : yen(v) + '円'}</td>
       <td>${off ? '—' : c + '人'}</td>
       <td>${c ? yen(v / c) + '円' : '—'}</td>
       <td>${g ? yen(g) + '円' : '—'}</td></tr>`;
   });
-  h += `<tr class="total"><td>合計</td><td>${yen(sum[0])}円</td><td>${sum[1]}人</td>
-    <td>${sum[1] ? yen(sum[0] / sum[1]) + '円' : '—'}</td><td>${yen(sum[2])}円</td></tr>`;
+  h += `<tr class="total"><td>合計</td><td>${yen(sum[0])}円</td><td>${yen(sum[1])}円</td>
+    <td>${sum[2]}人</td><td>${sum[2] ? yen(sum[1] / sum[2]) + '円' : '—'}</td>
+    <td>${yen(sum[3])}円</td></tr>`;
   return h + `</tbody></table></div>`;
 }
 
 /* 日別の売上（棒グラフ） */
 function daily(rows) {
   if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
-  const max = Math.max(...rows.map(r => r[1]), 1);
+  const max = Math.max(...rows.map(r => r[2]), 1);
   const W = 100, H = 26, n = rows.length, gap = 0.5;
   const bw = (W - gap * (n - 1)) / n;
-  const best = rows.reduce((a, b) => b[1] > a[1] ? b : a, rows[0]);
+  const best = rows.reduce((a, b) => b[2] > a[2] ? b : a, rows[0]);
   let bars = '', labs = '';
   rows.forEach((r, i) => {
-    const [d, v, c] = r;
+    const [d, gr, v, c] = r;
     const h = Math.max(v > 0 ? 0.8 : 0.3, v / max * (H - 5));
     const x = i * (bw + gap);
     const top = v === best[1] && v > 0;
     bars += `<rect x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}"
       height="${h.toFixed(2)}" rx=".5" fill="var(--${v === 0 ? 'line2' : top ? 'accent' : 'line'})"
-      ><title>${d}日　${yen(v)}円　${c}人</title></rect>`;
+      ><title>${d}日　純売上 ${yen(v)}円　${c}人</title></rect>`;
     if (d === 1 || d % 5 === 0 || i === n - 1) {
       labs += `<text x="${(x + bw / 2).toFixed(2)}" y="${H + 4}" text-anchor="middle"
         font-size="2.9" fill="var(--ink3)">${d}</text>`;
     }
   });
-  const sum = rows.reduce((a, b) => a + b[1], 0);
-  const open = rows.filter(r => r[1] > 0).length;
+  const sum = rows.reduce((a, b) => a + b[2], 0);
+  const open = rows.filter(r => r[2] > 0).length;
   return `<svg class="chart" viewBox="-1 -2 ${W + 2} ${H + 8}" role="img"
     aria-label="日ごとの売上"><line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"
     stroke-width=".25"></line>${bars}${labs}</svg>
-    <p class="mini" style="margin-top:8px">営業 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
-    いちばん多かったのは ${best[0]}日の ${yen(best[1])}円（${best[2]}人）</p>`;
+    <p class="mini" style="margin-top:8px">棒は純売上です。出勤 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
+    いちばん多かったのは ${best[0]}日の ${yen(best[2])}円（${best[3]}人）</p>`;
 }
 
 /* 売上の内訳：細かい分解 */
@@ -313,7 +317,10 @@ function renderRank() {
   const cols = [
     ['総売上', x => yen(x.gross) + '円'],
     ['純売上', x => yen(x.net) + '円'],
+    ['出勤', x => x.workdays + '日'],
     ['客数', x => x.customers],
+    ['1日あたり売上', x => yen(x.net_per_day) + '円', x => x.net_per_day >= s.net_per_day ? 1 : 0],
+    ['1日あたり客数', x => x.cust_per_day.toFixed(1) + '人'],
     ['客単価', x => yen(x.avg) + '円', x => x.avg >= s.avg ? 1 : 0],
     ['新規率', x => pct(x.new_rate)],
     ['指名率', x => pct(x.nom_rate)],
@@ -335,7 +342,7 @@ function renderRank() {
   let h = partial();
   h += `<section><h2>スタイリスト比較</h2>
     <p class="lede">緑は目標達成または店舗平均より良いところ、赤は伸びしろがあるところです。横にスクロールできます。<br>
-    「店舗全体」の行には、フリー枠など一覧に出ていないスタッフの分も含まれます。</p>
+    「出勤」はお会計が1件でもあった日を数えています。<br>「店舗全体」の行には、フリー枠など一覧に出ていないスタッフの分も含まれます。</p>
     <div class="tbl"><table><thead><tr><th>スタイリスト</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>`;
   d.stylists.forEach(x => {
     h += `<tr><td>${esc(x.name)}</td>` + cols.map(c => {
@@ -343,8 +350,9 @@ function renderRank() {
       return `<td class="${j > 0 ? 'ok' : j < 0 ? 'bad' : ''}">${c[1](x)}</td>`;
     }).join('') + `</tr>`;
   });
-  h += `<tr class="total"><td>店舗全体</td><td>${yen(s.gross)}円</td><td>${yen(s.net)}円</td><td>${s.customers}</td>
-    <td>${yen(s.avg)}円</td><td>${pct(s.new_rate)}</td><td>${pct(s.nom_rate)}</td>
+  h += `<tr class="total"><td>店舗全体</td><td>${yen(s.gross)}円</td><td>${yen(s.net)}円</td>
+    <td>${s.workdays}日</td><td>${s.customers}</td><td>${yen(s.net_per_day)}円</td>
+    <td>${s.cust_per_day.toFixed(1)}人</td><td>${yen(s.avg)}円</td><td>${pct(s.new_rate)}</td><td>${pct(s.nom_rate)}</td>
     <td>${s.free_count}件 ${pct(s.free_rate)}</td>
     <td>${s.rebook_made && s.rebook_made.take_rate !== null ? pct(s.rebook_made.take_rate) : '—'}</td>
     <td>${s.rebook_made ? s.rebook_made.made + '件' : '—'}</td>

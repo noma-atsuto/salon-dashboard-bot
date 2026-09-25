@@ -190,6 +190,10 @@ def _metrics(d, all_df=None, month=None, first_days=None):
     m["detail"] = _detail(d)
     # 初回来店のお客様が何人いたか（次回予約の取得率の分母）
     m["first_visits"] = m["new"]     # 初回来店のお客様＝新規のお客様
+    # 出勤日数＝お会計が1件でもあった日の数
+    m["workdays"] = int(d["来店日"].dt.date.nunique()) if not d.empty else 0
+    m["net_per_day"] = m["net"] / m["workdays"] if m["workdays"] else 0.0
+    m["cust_per_day"] = m["customers"] / m["workdays"] if m["workdays"] else 0.0
     return m
 
 
@@ -228,20 +232,22 @@ def _detail(d, top=15):
 
 
 def _daily(d):
-    """日ごとの数字。[日, 純売上, 客数, 店販] の配列"""
+    """日ごとの数字。[日, 総売上, 純売上, 客数, 店販] の配列"""
     if d.empty:
         return []
     day = d["来店日"].dt.day
     net = d.groupby(day)["金額"].sum()
     cnt = d.groupby(day)["会計ID"].nunique()
+    # 総売上＝割引とポイントを引く前
+    plus = d[~((d["区分"] == "技術") & (d["カテゴリ"] == "割引クーポン"))
+             & ~((d["区分"] == "その他") & (d["カテゴリ"] == "ポイント"))]
+    gross = plus.groupby(plus["来店日"].dt.day)["金額"].sum() if not plus.empty else {}
     gd = d[d["区分"] == "商品"]
     goods = gd.groupby(gd["来店日"].dt.day)["金額"].sum() if not gd.empty else {}
+    get = lambda src, i: (src.get(i, 0) if hasattr(src, "get") else 0)
     last = int(day.max())
-    out = []
-    for i in range(1, last + 1):
-        g = goods.get(i, 0) if hasattr(goods, "get") else 0
-        out.append([i, float(net.get(i, 0)), int(cnt.get(i, 0)), float(g)])
-    return out
+    return [[i, float(get(gross, i)), float(net.get(i, 0)), int(cnt.get(i, 0)),
+             float(get(goods, i))] for i in range(1, last + 1)]
 
 
 def _visit_index(all_df):
