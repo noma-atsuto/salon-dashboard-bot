@@ -10,6 +10,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
 def build_payload():
     data = analyze.build()
     months = sorted(data)
+    shift = analyze.load_shift()
     payload = {"months": months, "target": feedback.TARGET, "data": {}}
     KEYS = ("net", "gross", "tech", "goods", "goods_items", "goods_per", "goods_ratio", "discount",
             "goods_buyers", "goods_buy_rate", "goods_per_buyer", "goods_per_item",
@@ -48,6 +49,16 @@ def build_payload():
                 "feedback": feedback.stylist_feedback(p, s, pv),
             })
         payload["data"][m] = entry
+
+    # 目標は、集計が終わった過去の月を見て決める
+    tmp = {m: {"partial": payload["data"][m]["partial"],
+               "store": {"net": data[m]["store"]["net"],
+                         "workdays": data[m]["store"]["workdays"]},
+               "stylists": data[m]["stylists"]} for m in months}
+    analyze.build_targets(tmp, shift, months)
+    for m in months:
+        payload["data"][m]["target"] = tmp[m].get("target")
+    payload["growth"] = analyze.GROWTH
     return payload
 
 
@@ -67,6 +78,7 @@ def main():
             '<button data-v="store" role="tab" aria-selected="true">店舗全体</button>'
             '<button data-v="rank" role="tab" aria-selected="false">スタイリスト比較</button>'
             '<button data-v="rebook" role="tab" aria-selected="false">次回予約</button>'
+            '<button data-v="goal" role="tab" aria-selected="false">目標</button>'
             '<button data-v="person" role="tab" aria-selected="false">個人カルテ</button>'
             '</div>',
             '</div>',

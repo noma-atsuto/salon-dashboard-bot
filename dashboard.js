@@ -460,6 +460,75 @@ function renderRebook() {
   return h;
 }
 
+function renderGoal() {
+  const d = cur(), s = d.store, t = d.target;
+  let h = partial();
+  if (!t) {
+    return h + `<section><div class="panel"><p>この月の目標は出せません。<br>
+      目標は、それより前の「集計が終わった月」の実績をもとに計算しています。</p></div></section>`;
+  }
+  const rate = t.store ? s.net / t.store * 100 : 0;
+  const left = Math.max(0, t.store - s.net);
+  // 当月が途中なら、経過した出勤日から見たペースを出す
+  const doneDays = s.workdays, planDays = t.store_days || s.workdays;
+  const pace = (planDays && doneDays) ? (s.net / doneDays * planDays) / t.store * 100 : null;
+
+  h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の売上目標（店舗）</div>
+    <div class="big">${yen(t.store)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
+    <div class="sub">出勤のべ ${planDays}日ぶん</div>
+    <div class="track" style="margin-top:14px;height:12px">
+      <i class="${rate >= 100 ? 'ok' : rate >= 80 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>
+    <div class="sub" style="margin-top:8px">実績 <b>${yen(s.net)}円</b>　達成率 <b>${pct(rate)}</b>
+      ${left > 0 ? `　あと ${yen(left)}円` : '　達成しました'}</div></div>`;
+
+  h += `<div class="strip">
+    <div><div class="k">目標</div><div class="v">${yen(t.store)}</div><div class="d">円</div></div>
+    <div><div class="k">実績</div><div class="v">${yen(s.net)}</div><div class="d">${d.partial ? month.slice(5) + '月' + d.end.slice(8) + '日まで' : '確定'}</div></div>
+    <div><div class="k">達成率</div><div class="v">${pct(rate)}</div><div class="d">${left > 0 ? 'あと ' + yen(left) + '円' : '達成'}</div></div>
+    ${d.partial && pace !== null ? `<div><div class="k">このペースだと</div><div class="v">${pct(pace)}</div>
+      <div class="d">出勤 ${doneDays}／${planDays}日で計算</div></div>` : ''}
+  </div>`;
+
+  h += `<section><h2>スタイリストごとの目標</h2>
+    <p class="lede">出勤日数をかけて出しています。横にスクロールできます。</p>
+    <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>出勤</th>
+    <th>1日あたりの目安</th><th>目標</th><th>実績</th><th>達成率</th><th>残り</th></tr></thead><tbody>` +
+    Object.entries(t.stylists).sort((a, b) => b[1].target - a[1].target).map(([n, v]) => {
+      const r = v.target ? v.actual / v.target * 100 : 0;
+      const rest = Math.max(0, v.target - v.actual);
+      return `<tr><td>${esc(n)}</td><td>${v.days}日</td><td>${yen(v.base_per_day)}円</td>
+        <td>${yen(v.target)}円</td><td>${yen(v.actual)}円</td>
+        <td class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}">${pct(r)}</td>
+        <td>${rest > 0 ? yen(rest) + '円' : '—'}</td></tr>`;
+    }).join('') +
+    `<tr class="total"><td>店舗全体</td><td>${planDays}日</td><td>—</td>
+      <td>${yen(t.store)}円</td><td>${yen(s.net)}円</td>
+      <td class="${rate >= 100 ? 'ok' : rate < 80 ? 'bad' : ''}">${pct(rate)}</td>
+      <td>${left > 0 ? yen(left) + '円' : '—'}</td></tr></tbody></table></div></section>`;
+
+  h += `<section><h2>達成率の推移</h2><div class="panel routes">` +
+    P.months.map(m => {
+      const tt = P.data[m].target, ss = P.data[m].store;
+      if (!tt) return '';
+      const r = tt.store ? ss.net / tt.store * 100 : 0;
+      return `<div class="r"><b>${Number(m.slice(5))}月${P.data[m].partial ? '（途中）' : ''}</b>
+        <div class="bar"><i style="width:${Math.min(100, r).toFixed(1)}%;
+          background:var(--${r >= 100 ? 'good' : r >= 80 ? 'accent' : 'warn'})"></i></div>
+        <span class="num">${pct(r)}　${yen(ss.net)}／${yen(tt.store)}円</span></div>`;
+    }).join('') + `</div></section>`;
+
+  h += `<section><h2>目標の決め方</h2><div class="panel">
+    <p style="margin:0 0 10px">直近${t.months_used}ヶ月（${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}）の
+    <b>1日あたりの純売上</b>を平均し、その月の<b>出勤日数</b>をかけています。
+    少し上を目指す分として <b>${((t.growth - 1) * 100).toFixed(0)}%</b> 上乗せしています。</p>
+    <div class="note">1人の目標 ＝ 1日あたりの平均 × ${t.growth} × 出勤日数<br>
+      店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの</div>
+    <p class="mini" style="margin-top:10px">上乗せ率を変えたいときは、<b>feedback.py の GROWTH</b> ではなく
+      <b>analyze.py の GROWTH</b>（現在 ${t.growth}）を変更してください。</p>
+    </div></section>`;
+  return h;
+}
+
 function renderPerson() {
   const d = cur(), s = d.store, x = d.stylists.find(v => v.name === person);
   if (!x) return '<section><div class="panel">この月のデータがありません。</div></section>';
@@ -480,6 +549,20 @@ function renderPerson() {
     <div><div class="k">客数</div><div class="v">${yen(x.customers)}</div><div class="d">${delta(x.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
   </div>`;
+  const tg = d.target && d.target.stylists[x.name];
+  if (tg) {
+    const r = tg.target ? tg.actual / tg.target * 100 : 0;
+    const rest = Math.max(0, tg.target - tg.actual);
+    h += `<section><h2>${Number(month.slice(5))}月の目標</h2>
+      <p class="lede">出勤${tg.days}日 × 1日あたり ${yen(tg.base_per_day)}円 で計算しています。</p>
+      <div class="panel goal"><div class="g">
+        <span class="n">売上</span><span class="val">${yen(tg.actual)}円</span>
+        <span class="tgt">目標 ${yen(tg.target)}円　${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span>
+        <div class="track"><i class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}"
+          style="width:${Math.min(100, r).toFixed(1)}%"></i></div>
+      </div></div></section>`;
+  }
+
   h += `<section><h2>次回予約</h2>
     <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
     ${rebookBlock(x, s)}</section>`;
@@ -525,7 +608,7 @@ function render() {
   selS.hidden = !show; lblS.hidden = !show;
   document.getElementById('view').innerHTML =
     view === 'store' ? renderStore() : view === 'rank' ? renderRank()
-    : view === 'rebook' ? renderRebook() : renderPerson();
+    : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal() : renderPerson();
   window.scrollTo({top: 0, behavior: 'instant'});
 }
 

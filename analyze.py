@@ -59,6 +59,20 @@ def workdays_from_shift(sh, month, upto_day, staff=None):
     return int(len(d)) if staff is not None else int(d["日"].nunique())
 
 
+def shift_days_planned(sh, month, staff=None):
+    """その月に予約枠を開けている日数（月末まで。目標の計算に使う）"""
+    if sh.empty:
+        return None
+    d = sh[(sh["月"] == month) & sh["出勤"]]
+    if staff is not None:
+        if not len(sh[(sh["月"] == month) & (sh["スタッフ"] == staff)]):
+            return None
+        return int(len(d[d["スタッフ"] == staff]))
+    if not len(sh[sh["月"] == month]):
+        return None
+    return int(d["日"].nunique())
+
+
 def load_rebook():
     """打った月ごとの次回予約。無ければ空で返す"""
     frames = []
@@ -350,6 +364,50 @@ def build():
                    "active": sorted(people, key=lambda k: -people[k]["net"]),
                    "top_goods": _top(d, "商品"), "top_menus": _top(d, "技術")}
     return out
+
+
+# 目標の作り方：過去の「1日あたり純売上」の平均に、その月の出勤日数をかける。
+# 少し上を目指す分として GROWTH を掛ける（1.00 なら実力どおり）。
+GROWTH = 1.05
+LOOKBACK = 6          # さかのぼる月数（集計が終わった月のみ）
+
+
+def build_targets(out, sh, months):
+    """月ごとに、店舗とスタイリストの売上目標をつくる"""
+    for i, mo in enumerate(months):
+        past = [m for m in months[:i] if not out[m]["partial"]][-LOOKBACK:]
+        entry = out[mo]
+        entry["target"] = None
+        if not past:
+            continue
+        planned_store = shift_days_planned(sh, mo) or entry["store"]["workdays"]
+        people = {}
+        total = 0.0
+        for name, p in entry["stylists"].items():
+            vals = [out[m]["stylists"][name]["net_per_day"]
+                    for m in past
+                    if name in out[m]["stylists"] and out[m]["stylists"][name]["net_per_day"]]
+            if not vals:
+                continue
+            base = sum(vals) / len(vals)
+            days = shift_days_planned(sh, mo, name) or p["workdays"]
+            goal = base * GROWTH * days
+            people[name] = {"base_per_day": base, "days": days, "target": goal,
+                            "actual": p["net"], "months_used": len(vals)}
+            total += goal
+        # 店舗目標：スタイリストの合計に、フリー枠など一覧外の分を過去比で足す
+        share = []
+        for m in past:
+            tot = out[m]["store"]["net"]
+            sub = sum(v["net"] for v in out[m]["stylists"].values())
+            if sub:
+                share.append(tot / sub)
+        ratio = sum(share) / len(share) if share else 1.0
+        entry["target"] = {
+            "store": total * ratio, "store_days": planned_store,
+            "stylists": people, "growth": GROWTH, "months_used": len(past),
+            "based_on": past,
+        }
 
 
 def _with_rate(f, first_visits):
