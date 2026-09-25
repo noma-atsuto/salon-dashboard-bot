@@ -377,8 +377,46 @@ GROWTH = 1.00
 LOOKBACK = 6          # さかのぼる月数（集計が終わった月のみ）
 
 
+def seasonal_index():
+    """月ごとの忙しさの指数（1.00が平年並み）。
+
+    売上や客数はスタッフの人数にも左右されるので、「1名あたりの客数」に直してから、
+    伸びの傾き（成長分）を取り除いた残りを季節のクセとみなす。
+    データが足りない月は 1.00（平年並み）として扱う。
+    """
+    path = os.path.join(CACHE, "headcount.csv")
+    if not os.path.exists(path):
+        return {}, {}
+    h = pd.read_csv(path)
+    h = h[(h["稼働"] > 0) & (h["客数"] > 0)].copy()
+    if len(h) < 6:
+        return {}, {}
+    h = h.sort_values("年月").reset_index(drop=True)
+    h["per"] = h["客数"] / h["稼働"]
+    t = list(range(len(h)))
+    a, b = _fit(t, list(h["per"]))
+    h["ratio"] = [v / (a * i + b) if (a * i + b) else 1.0 for i, v in zip(t, h["per"])]
+    idx, cnt = {}, {}
+    for m, g in h.groupby("月"):
+        idx[int(m)] = float(g["ratio"].mean())
+        cnt[int(m)] = int(len(g))
+    avg = sum(idx.values()) / len(idx)
+    return {k: v / avg for k, v in idx.items()}, cnt
+
+
+def _fit(xs, ys):
+    n = len(xs)
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    den = sum((x - mx) ** 2 for x in xs) or 1.0
+    a = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
+    return a, my - a * mx
+
+
 def build_targets(out, sh, months):
     """月ごとに、店舗とスタイリストの売上目標をつくる"""
+    season, season_n = seasonal_index()
+    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
     for i, mo in enumerate(months):
         past = [m for m in months[:i] if not out[m]["partial"]][-LOOKBACK:]
         entry = out[mo]
@@ -394,13 +432,16 @@ def build_targets(out, sh, months):
                     if name in out[m]["stylists"] and out[m]["stylists"][name]["gross_per_day"]]
             if not vals:
                 continue
-            best_m, best = max(vals, key=lambda kv: kv[1])
+            # 季節のクセを取り除いてから、いちばん良かった月を選ぶ
+            flat = [(m, v / sfac(m)) for m, v in vals]
+            best_m, best_flat = max(flat, key=lambda kv: kv[1])
             avg = sum(v for _, v in vals) / len(vals)
             days = shift_days_planned(sh, mo, name) or p["workdays"]
-            goal = best * GROWTH * days
-            people[name] = {"base_per_day": best, "avg_per_day": avg, "best_month": best_m,
-                            "days": days, "target": goal,
-                            "actual": p["gross"], "months_used": len(vals)}
+            base = best_flat * sfac(mo)          # その月の季節に合わせ直す
+            goal = base * GROWTH * days
+            people[name] = {"base_per_day": base, "avg_per_day": avg, "best_month": best_m,
+                            "days": days, "target": goal, "actual": p["gross"],
+                            "months_used": len(vals)}
             total += goal
         # 店舗目標：スタイリストの合計に、フリー枠など一覧外の分を過去比で足す
         share = []
@@ -413,7 +454,9 @@ def build_targets(out, sh, months):
         entry["target"] = {
             "store": total * ratio, "store_days": planned_store,
             "stylists": people, "growth": GROWTH, "months_used": len(past),
-            "based_on": past,
+            "based_on": past, "season": sfac(mo),
+            "season_table": {str(k): v for k, v in sorted(season.items())},
+            "season_years": {str(k): v for k, v in sorted(season_n.items())},
         }
 
 

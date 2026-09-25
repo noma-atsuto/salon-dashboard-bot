@@ -51,6 +51,7 @@ jobs:
           python fetch_detail.py
           python fetch_rebook.py
           python fetch_shift.py
+          python fetch_monthly.py
 
       - name: ページを作る（合言葉つき）
         env:

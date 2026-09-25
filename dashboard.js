@@ -476,7 +476,7 @@ function renderGoal() {
 
   h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の総売上目標（店舗）</div>
     <div class="big">${yen(t.store)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">出勤のべ ${planDays}日ぶん</div>
+    <div class="sub">出勤のべ ${planDays}日ぶん　${t.season ? `季節の指数 ${t.season.toFixed(2)}（${t.season >= 1.08 ? '繁忙期' : t.season <= 0.93 ? '閑散期' : '平年並み'}）` : ''}</div>
     <div class="track" style="margin-top:14px;height:12px">
       <i class="${rate >= 100 ? 'ok' : rate >= 80 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>
     <div class="sub" style="margin-top:8px">総売上 <b>${yen(act)}円</b>　達成率 <b>${pct(rate)}</b>
@@ -520,15 +520,35 @@ function renderGoal() {
         <span class="num">${pct(r)}　${yen(ss.gross)}／${yen(tt.store)}円</span></div>`;
     }).join('') + `</div></section>`;
 
+  const st = t.season_table || {};
+  const sy = t.season_years || {};
   h += `<section><h2>目標の決め方</h2><div class="panel">
     <p style="margin:0 0 10px">直近${t.months_used}ヶ月（${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}）のうち、
     <b>いちばん良かった月の「1日あたり総売上」</b>を基準にしています。
     平均ではなく最高の月を使うので強気ですが、<b>一度は実際に出している数字</b>なので届く目標です。</p>
-    <div class="note">1人の目標 ＝ いちばん良かった月の1日あたり総売上${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
+    <div class="note">1人の目標 ＝ いちばん良かった月の1日あたり総売上${t.growth !== 1 ? ' × ' + t.growth : ''}
+      × <b>季節の指数</b> × その月の出勤日数<br>
       店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの</div>
-    <p class="mini" style="margin-top:10px">「1日あたりの基準」の列に、その水準を出した月を並べています。
-    さらに上乗せしたいときは <b>analyze.py の GROWTH</b>（現在 ${t.growth}）を 1.05 などに変更してください。</p>
     </div></section>`;
+
+  if (Object.keys(st).length) {
+    const mx = Math.max(...Object.values(st));
+    h += `<section><h2>月ごとの忙しさ（季節の指数）</h2>
+      <p class="lede">過去の実績から出しています。スタッフの人数の増減が混ざらないよう、
+      <b>1名あたりの客数</b>に直したうえで、成長分を取り除いて計算しました。1.00が平年並みです。</p>
+      <div class="panel routes">` +
+      Object.keys(st).map(Number).sort((a, b) => a - b).map(m => {
+        const v = st[String(m)];
+        const tag = v >= 1.08 ? '繁忙' : v <= 0.93 ? '閑散' : '';
+        return `<div class="r"><b>${m}月${m === Number(month.slice(5)) ? '（今月）' : ''}</b>
+          <div class="bar"><i style="width:${(v / mx * 100).toFixed(1)}%;
+            background:var(--${v >= 1.08 ? 'warn' : v <= 0.93 ? 'accent' : 'line'})"></i></div>
+          <span class="num">${v.toFixed(2)}　${tag}　${sy[String(m)] || 0}年分</span></div>`;
+      }).join('') + `</div>
+      <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。
+      月が進むほど精度が上がります。上乗せ率を変えたいときは <b>analyze.py の GROWTH</b>（現在 ${t.growth}）を変更してください。</p>
+      </section>`;
+  }
   return h;
 }
 
