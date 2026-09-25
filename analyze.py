@@ -373,9 +373,11 @@ def build():
 #          （一度は実際に出している数字なので、強気だが再現できる）
 #   目標 = 基準 × GROWTH × その月の出勤日数
 # 季節（繁忙期・閑散期）は目標には掛けない。参考の指標として画面に出すだけ。
-GROWTH = 1.15
+BASIS = "avg"             # "avg"＝直近の平均を基準 / "best"＝いちばん良かった月を基準
+GROWTH = 1.05
 LOOKBACK = 6              # さかのぼる月数（集計が終わった月のみ）
-STORE_FLOOR = 10_500_000  # 店舗の月間目標の下限（総売上）。出勤が少ない月でもここは下回らない
+SINCE = "2026-05"         # この月以降の実績だけを参照する（体制が変わった時期）
+STORE_FLOOR = 10_500_000  # 店舗の月間目標のボーダー。下回る月はここまで引き上げる
 
 
 def seasonal_index():
@@ -419,7 +421,8 @@ def build_targets(out, sh, months):
     season, season_n = seasonal_index()
     sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
     for i, mo in enumerate(months):
-        past = [m for m in months[:i] if not out[m]["partial"]][-LOOKBACK:]
+        past = [m for m in months[:i]
+                if not out[m]["partial"] and (not SINCE or m >= SINCE)][-LOOKBACK:]
         entry = out[mo]
         entry["target"] = None
         if not past:
@@ -433,11 +436,11 @@ def build_targets(out, sh, months):
                     if name in out[m]["stylists"] and out[m]["stylists"][name]["gross_per_day"]]
             if not vals:
                 continue
-            # 実績そのままで、いちばん良かった月を基準にする（季節は掛けない）
+            # 直近の実績を基準にする（季節は掛けない）
             best_m, best = max(vals, key=lambda kv: kv[1])
             avg = sum(v for _, v in vals) / len(vals)
             days = shift_days_planned(sh, mo, name) or p["workdays"]
-            base = best
+            base = (best if BASIS == "best" else avg)
             goal = base * GROWTH * days
             people[name] = {"base_per_day": base, "avg_per_day": avg, "best_month": best_m,
                             "days": days, "target": goal, "actual": p["gross"],

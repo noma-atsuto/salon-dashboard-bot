@@ -476,7 +476,7 @@ function renderGoal() {
 
   h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の総売上目標（店舗）</div>
     <div class="big">${yen(t.store)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">出勤のべ ${planDays}日ぶん${t.floored ? `　（下限 ${yen(t.floor)}円を適用）` : ''}</div>
+    <div class="sub">出勤のべ ${planDays}日ぶん${t.floored ? `　（ボーダー ${yen(t.floor)}円を適用）` : ''}</div>
     <div class="track" style="margin-top:14px;height:12px">
       <i class="${rate >= 100 ? 'ok' : rate >= 80 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>
     <div class="sub" style="margin-top:8px">総売上 <b>${yen(act)}円</b>　達成率 <b>${pct(rate)}</b>
@@ -493,7 +493,7 @@ function renderGoal() {
   h += `<section><h2>スタイリストごとの目標</h2>
     <p class="lede">すべて総売上（割引前）です。出勤日数をかけて出しています。横にスクロールできます。</p>
     <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>出勤</th>
-    <th>1日あたりの基準</th><th>その水準を出した月</th><th>目標</th><th>実績</th>
+    <th>1日あたりの基準</th><th>いちばん良かった月</th><th>目標</th><th>実績</th>
     <th>達成率</th><th>残り</th></tr></thead><tbody>` +
     Object.entries(t.stylists).sort((a, b) => b[1].target - a[1].target).map(([n, v]) => {
       const r = v.target ? v.actual / v.target * 100 : 0;
@@ -523,12 +523,12 @@ function renderGoal() {
   const st = t.season_table || {};
   const sy = t.season_years || {};
   h += `<section><h2>目標の決め方</h2><div class="panel">
-    <p style="margin:0 0 10px">直近${t.months_used}ヶ月（${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}）のうち、
-    <b>いちばん良かった月の「1日あたり総売上」</b>を基準にしています。
-    平均ではなく最高の月を使うので強気ですが、<b>一度は実際に出している数字</b>なので届く目標です。</p>
-    <div class="note">1人の目標 ＝ いちばん良かった月の1日あたり総売上${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
+    <p style="margin:0 0 10px">${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}の
+    <b>「1日あたり総売上」の平均</b>を基準にしています。
+    そこに <b>${((t.growth - 1) * 100).toFixed(0)}%</b> を上乗せし、その月の出勤日数をかけたものが目標です。</p>
+    <div class="note">1人の目標 ＝ 直近の1日あたり総売上の平均${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
       店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの<br>
-      ただし店舗の目標は <b>${yen(t.floor)}円</b> を下限とし、下回る月は全員の目標を同じ割合で引き上げます
+      店舗の目標は <b>${yen(t.floor)}円</b> をボーダーとし、下回る月は全員の目標を同じ割合で引き上げます
       ${t.floored ? '（<b>今月は下限を適用しています</b>）' : ''}</div>
     <p class="mini" style="margin-top:10px">季節（繁忙期・閑散期）は目標には掛けていません。
     実績そのものから決めています。季節は下の表で<b>参考</b>としてご覧ください。</p>
