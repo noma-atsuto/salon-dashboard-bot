@@ -554,6 +554,73 @@ function renderGoal() {
   return h;
 }
 
+const GROWTH_METRICS = [
+  ['gross', '総売上', v => yen(v) + '円'],
+  ['customers', '客数', v => v + '人'],
+  ['avg', '客単価', v => yen(v) + '円'],
+  ['goods', '店販', v => yen(v) + '円'],
+  ['net_per_day', '1日あたり', v => yen(v) + '円'],
+];
+let growthKey = 'gross';
+let growthSel = null;
+
+/* スタイリストの成長グラフ（月ごと・タップで数字） */
+function growthBlock(name) {
+  const rows = P.months.map(m => {
+    const x = (P.data[m].stylists || []).find(v => v.name === name);
+    return {m, x, partial: P.data[m].partial};
+  });
+  if (!rows.some(r => r.x)) return '';
+  const spec = GROWTH_METRICS.find(g => g[0] === growthKey) || GROWTH_METRICS[0];
+  const vals = rows.map(r => (r.x ? (r.x[spec[0]] || 0) : 0));
+  const max = Math.max(...vals, 1);
+  let sel = growthSel;
+  if (sel === null || sel === undefined || !rows[sel]) sel = P.months.indexOf(month);
+  const W = 100, H = 30, gap = 2.2, n = rows.length;
+  const bw = (W - gap * (n - 1)) / n;
+  let bars = '', labs = '';
+  rows.forEach((r, i) => {
+    const v = vals[i], h = Math.max(v > 0 ? 1 : 0.4, v / max * (H - 8));
+    const x = i * (bw + gap), on = i === sel;
+    bars += `<rect class="gbar" data-i="${i}" x="${(x - gap / 2).toFixed(2)}" y="-8"
+      width="${(bw + gap).toFixed(2)}" height="${H + 8}" fill="transparent"></rect>`;
+    bars += `<rect class="gbar" data-i="${i}" x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}"
+      width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="1"
+      fill="var(--${v === 0 ? 'line2' : on ? 'accent' : 'line'})"></rect>`;
+    if (on && v > 0) bars += `<text x="${(x + bw / 2).toFixed(2)}" y="${(H - h - 2.2).toFixed(2)}"
+      text-anchor="middle" font-size="3.4" font-weight="700" fill="var(--accent)">${spec[2](v)}</text>`;
+    labs += `<text class="gbar" data-i="${i}" x="${(x + bw / 2).toFixed(2)}" y="${H + 4.6}"
+      text-anchor="middle" font-size="3.2" fill="var(--${on ? 'ink2' : 'ink3'})"
+      font-weight="${on ? 700 : 400}">${Number(r.m.slice(5))}月</text>`;
+  });
+  // 伸び（最初の月と選んだ月の比較）
+  const firstIdx = vals.findIndex(v => v > 0);
+  const diff = (firstIdx >= 0 && firstIdx !== sel && vals[firstIdx])
+    ? (vals[sel] - vals[firstIdx]) / vals[firstIdx] * 100 : null;
+  const r = rows[sel];
+  const x = r && r.x;
+  return `<div class="switch">` + GROWTH_METRICS.map(([k, label]) =>
+      `<button type="button" class="gtab" data-k="${k}" aria-selected="${k === growthKey}">${label}</button>`).join('') +
+    `</div>
+    <svg class="chart" viewBox="-1 -10 ${W + 2} ${H + 17}" role="img" aria-label="月ごとの推移">
+      <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)" stroke-width=".25"></line>
+      ${bars}${labs}</svg>
+    ${x ? `<div class="dayinfo"><div class="dhead">${Number(r.m.slice(5))}月${r.partial ? '（集計途中）' : ''}
+      ${diff !== null ? `<span class="wd ${diff >= 0 ? '' : 'sun'}" style="font-size:12px">
+        ${Number(P.months[firstIdx].slice(5))}月から ${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</span>` : ''}</div>
+      <div class="dgrid">
+        <div><span>総売上</span><b>${yen(x.gross)}円</b></div>
+        <div><span>客数</span><b>${x.customers}人</b></div>
+        <div><span>客単価</span><b>${yen(x.avg)}円</b></div>
+        <div><span>出勤</span><b>${x.workdays}日</b></div>
+        <div><span>1日あたり</span><b>${yen(x.net_per_day)}円</b></div>
+        <div><span>店販</span><b>${yen(x.goods)}円</b></div>
+        <div><span>次回予約</span><b>${x.rebook_made && x.rebook_made.take_rate !== null ? pct(x.rebook_made.take_rate) : '—'}</b></div>
+        <div><span>トリートメント</span><b>${pct(x.treat_rate)}</b></div>
+      </div></div>` : '<p class="mini">この月は対象外です。</p>'}
+    <p class="mini" style="margin-top:8px">棒をタップすると、その月の数字が出ます。上のボタンで見る項目を変えられます。</p>`;
+}
+
 function renderPerson() {
   const d = cur(), s = d.store, x = d.stylists.find(v => v.name === person);
   if (!x) return '<section><div class="panel">この月のデータがありません。</div></section>';
@@ -566,6 +633,9 @@ function renderPerson() {
     <div class="sub">${delta(x.net, pv?.net) || '&nbsp;'}　担当 ${x.customers}人</div>
     <div style="margin-top:14px">${chart('net', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
+  h += `<section><h2>成長の推移</h2>
+    <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
+    <div class="panel">${growthBlock(x.name)}</div></section>`;
   h += `<div class="strip">
     <div><div class="k">総売上（割引前）</div><div class="v">${yen(x.gross)}</div><div class="d">${delta(x.gross, pv?.gross) || '円'}</div></div>
     <div><div class="k">純売上</div><div class="v">${yen(x.net)}</div><div class="d">割引 ${yen(x.gross - x.net)}円を差引</div></div>
@@ -626,6 +696,9 @@ function renderPerson() {
 }
 
 function render() {
+  document.getElementById('vtitle').textContent = VIEW_NAME[view] || '';
+  document.querySelectorAll('.mitem').forEach(b =>
+    b.setAttribute('aria-current', String(b.dataset.v === view)));
   selS.innerHTML = '';
   stylists().forEach(v => selS.add(new Option(v.name, v.name)));
   if (!person || !stylists().some(v => v.name === person)) person = stylists()[0]?.name;
@@ -639,6 +712,10 @@ function render() {
 }
 
 document.getElementById('view').addEventListener('click', ev => {
+  const gt = ev.target.closest('.gtab');
+  if (gt) { growthKey = gt.dataset.k; render(); return; }
+  const gb = ev.target.closest('.gbar');
+  if (gb) { growthSel = Number(gb.dataset.i); render(); return; }
   const bar = ev.target.closest('.dbar');
   if (bar) {
     const id = bar.dataset.t, i = Number(bar.dataset.i);
@@ -661,9 +738,23 @@ document.getElementById('view').addEventListener('click', ev => {
   if (m && P.data[m] && m !== month) { month = m; selM.value = m; render(); }
 });
 
-document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.seg button').forEach(t => t.setAttribute('aria-selected', String(t === b)));
-  view = b.dataset.v; render();
+const VIEW_NAME = {store: '店舗全体', rank: 'スタイリスト比較', goal: '目標',
+                   rebook: '次回予約', person: '個人カルテ'};
+const menu = document.getElementById('menu');
+const menuBg = document.getElementById('menubg');
+const menuBtn = document.getElementById('menubtn');
+
+function setMenu(open) {
+  menu.hidden = !open;
+  menuBg.hidden = !open;
+  menuBtn.setAttribute('aria-expanded', String(open));
+  menuBtn.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
+}
+menuBtn.addEventListener('click', () => setMenu(menu.hidden));
+menuBg.addEventListener('click', () => setMenu(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () => {
+  view = b.dataset.v; setMenu(false); render();
 }));
 selM.addEventListener('change', e => { month = e.target.value; render(); });
 selS.addEventListener('change', e => { person = e.target.value; render(); });

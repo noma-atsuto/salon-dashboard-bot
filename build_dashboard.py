@@ -71,19 +71,28 @@ def main():
     html = [HTML_HEAD,
             '<div class="wrap">',
             '<div class="top">',
-            '<p class="brand">AI TOKYO men\'s 池袋</p>',
-            '<h1>スタイリスト分析</h1>',
+            '<div class="topbar">',
+            '<button id="menubtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="メニューを開く">'
+            '<span class="bars"><i></i><i></i><i></i></span></button>',
+            '<div class="titles"><p class="brand">AI TOKYO men\'s 池袋</p>'
+            '<h1 id="vtitle">店舗全体</h1></div>',
+            '</div>',
             '<div class="ctrl"><select id="m" aria-label="対象月"></select>',
             '<span id="ls" hidden></span><select id="s" aria-label="スタイリスト" hidden></select></div>',
-            '<div class="seg" role="tablist">'
-            '<button data-v="store" role="tab" aria-selected="true">店舗全体</button>'
-            '<button data-v="rank" role="tab" aria-selected="false">スタイリスト比較</button>'
-            '<button data-v="rebook" role="tab" aria-selected="false">次回予約</button>'
-            '<button data-v="goal" role="tab" aria-selected="false">目標</button>'
-            '<button data-v="person" role="tab" aria-selected="false">個人カルテ</button>'
             '</div>',
-            '</div>',
-            '<div class="topspace"></div>',
+            '<nav id="menu" hidden aria-label="表示の切り替え">',
+            '<button class="mitem" data-v="store"><b>店舗全体</b>'
+            '<span>売上・客数・目標の進み・予約経路・フィードバック</span></button>',
+            '<button class="mitem" data-v="rank"><b>スタイリスト比較</b>'
+            '<span>全員の数字を一覧で並べて比べる</span></button>',
+            '<button class="mitem" data-v="goal"><b>目標</b>'
+            '<span>今月の売上目標と、達成までの残り</span></button>',
+            '<button class="mitem" data-v="rebook"><b>次回予約</b>'
+            '<span>取得率ランキングと、その後の来店</span></button>',
+            '<button class="mitem" data-v="person"><b>個人カルテ</b>'
+            '<span>1人ぶんの数字・成長の推移・次の一手</span></button>',
+            '</nav>',
+            '<div id="menubg" hidden></div>',
             '<div id="view"></div>',
             '<p class="foot">ビューティーメリットのデータをもとに自動作成しています。'
             '数値の最終確認は管理画面でお願いします。<br>'
