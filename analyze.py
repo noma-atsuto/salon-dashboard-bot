@@ -32,6 +32,33 @@ def load():
     return df
 
 
+def load_shift():
+    """シフト（出勤／休日）。記録がある月だけ入っている"""
+    frames = []
+    for path in sorted(glob.glob(os.path.join(CACHE, "shift_*.csv"))):
+        frames.append(pd.read_csv(path))
+    if not frames:
+        return pd.DataFrame(columns=["月", "スタッフ", "日", "出勤"])
+    df = pd.concat(frames, ignore_index=True)
+    df["スタッフ"] = df["スタッフ"].fillna("").astype(str).str.strip()
+    df["出勤"] = df["出勤"].astype(str).str.lower().isin(["true", "1"])
+    return df
+
+
+def workdays_from_shift(sh, month, upto_day, staff=None):
+    """予約枠を開けている日を出勤として数える。記録が無ければ None"""
+    if sh.empty:
+        return None
+    d = sh[(sh["月"] == month) & (sh["日"] <= upto_day) & sh["出勤"]]
+    if staff is not None:
+        d = d[d["スタッフ"] == staff]
+        if not len(sh[(sh["月"] == month) & (sh["スタッフ"] == staff)]):
+            return None
+    elif not len(sh[sh["月"] == month]):
+        return None
+    return int(len(d)) if staff is not None else int(d["日"].nunique())
+
+
 def load_rebook():
     """打った月ごとの次回予約。無ければ空で返す"""
     frames = []
@@ -190,10 +217,11 @@ def _metrics(d, all_df=None, month=None, first_days=None):
     m["detail"] = _detail(d)
     # 初回来店のお客様が何人いたか（次回予約の取得率の分母）
     m["first_visits"] = m["new"]     # 初回来店のお客様＝新規のお客様
-    # 出勤日数＝お会計が1件でもあった日の数
-    m["workdays"] = int(d["来店日"].dt.date.nunique()) if not d.empty else 0
-    m["net_per_day"] = m["net"] / m["workdays"] if m["workdays"] else 0.0
-    m["cust_per_day"] = m["customers"] / m["workdays"] if m["workdays"] else 0.0
+    # 出勤日数：シフトの記録があればそちら（予約枠を開けている日）を使う
+    acc_days = int(d["来店日"].dt.date.nunique()) if not d.empty else 0
+    m["workdays_sales"] = acc_days
+    m["workdays"] = acc_days
+    m["workday_source"] = "sales"
     return m
 
 
@@ -288,6 +316,7 @@ def build():
     df = load()
     firsts = first_visit_days(df)
     rb = mark_first_visit(load_rebook(), df)
+    sh = load_shift()
     idx = _visit_index(df)
     months = sorted(df["月"].unique())
     out = {}
@@ -307,6 +336,15 @@ def build():
             p["return"] = _return_rate(df, mo, idx, name)
             p["rebook_made"] = _with_rate(rebook_funnel(rb, mo, name), p["first_visits"])
             people[name] = p
+        # シフトの記録がある月は、そちらで出勤日数を置き換える
+        upto = int(str(store["end"])[8:10])
+        for who, mm in [(None, store)] + [(k, v) for k, v in people.items()]:
+            w = workdays_from_shift(sh, mo, upto, who)
+            if w:
+                mm["workdays"] = w
+                mm["workday_source"] = "shift"
+            mm["net_per_day"] = mm["net"] / mm["workdays"] if mm["workdays"] else 0.0
+            mm["cust_per_day"] = mm["customers"] / mm["workdays"] if mm["workdays"] else 0.0
         store["headcount"] = len(people)
         out[mo] = {"store": store, "stylists": people,
                    "active": sorted(people, key=lambda k: -people[k]["net"]),
