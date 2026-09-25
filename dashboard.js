@@ -38,16 +38,69 @@ function chart(key, isStore, unit) {
     const h = Math.max(1, v / max * (H - 7));
     const x = i * (bw + pad), y = H - h;
     const on = P.months[i] === month;
-    bars += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}"
-      rx=".8" fill="var(--${on ? 'accent' : 'line'})"></rect>`;
+    const tag = isStore || true ? P.months[i] : '';
+    bars += `<rect class="mbar" data-m="${tag}" x="${x.toFixed(2)}" y="0" width="${bw.toFixed(2)}" height="${H}"
+      fill="transparent"></rect>`;
+    bars += `<rect class="mbar" data-m="${tag}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}"
+      rx=".8" fill="var(--${on ? 'accent' : 'line'})"><title>${tag.slice(0,4)}年${Number(tag.slice(5))}月　${yen(v)}円</title></rect>`;
     if (on) bars += `<text x="${(x + bw / 2).toFixed(2)}" y="${(y - 1.8).toFixed(2)}"
       text-anchor="middle" font-size="3.6" font-weight="700" fill="var(--accent)">${yen(v)}${unit || ''}</text>`;
-    labs += `<text x="${(x + bw / 2).toFixed(2)}" y="${H + 4.4}" text-anchor="middle"
+    labs += `<text class="mbar" data-m="${tag}" x="${(x + bw / 2).toFixed(2)}" y="${H + 4.4}" text-anchor="middle"
       font-size="3.2" fill="var(--${on ? 'ink2' : 'ink3'})" font-weight="${on ? 700 : 400}">${Number(P.months[i].slice(5))}月</text>`;
   });
   return `<svg class="chart" viewBox="-2 -6.5 ${W + 4} ${H + 12}" role="img"
     aria-label="月ごとの推移"><line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"
     stroke-width=".3"></line>${bars}${labs}</svg>`;
+}
+
+/* 日別の売上（棒グラフ） */
+function daily(rows) {
+  if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  const W = 100, H = 26, n = rows.length, gap = 0.5;
+  const bw = (W - gap * (n - 1)) / n;
+  const best = rows.reduce((a, b) => b[1] > a[1] ? b : a, rows[0]);
+  let bars = '', labs = '';
+  rows.forEach((r, i) => {
+    const [d, v, c] = r;
+    const h = Math.max(v > 0 ? 0.8 : 0.3, v / max * (H - 5));
+    const x = i * (bw + gap);
+    const top = v === best[1] && v > 0;
+    bars += `<rect x="${x.toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}"
+      height="${h.toFixed(2)}" rx=".5" fill="var(--${v === 0 ? 'line2' : top ? 'accent' : 'line'})"
+      ><title>${d}日　${yen(v)}円　${c}人</title></rect>`;
+    if (d === 1 || d % 5 === 0 || i === n - 1) {
+      labs += `<text x="${(x + bw / 2).toFixed(2)}" y="${H + 4}" text-anchor="middle"
+        font-size="2.9" fill="var(--ink3)">${d}</text>`;
+    }
+  });
+  const sum = rows.reduce((a, b) => a + b[1], 0);
+  const open = rows.filter(r => r[1] > 0).length;
+  return `<svg class="chart" viewBox="-1 -2 ${W + 2} ${H + 8}" role="img"
+    aria-label="日ごとの売上"><line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"
+    stroke-width=".25"></line>${bars}${labs}</svg>
+    <p class="mini" style="margin-top:8px">営業 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
+    いちばん多かったのは ${best[0]}日の ${yen(best[1])}円（${best[2]}人）</p>`;
+}
+
+/* 売上の内訳 */
+function breakdown(x) {
+  const rows = [
+    ['技術（メニュー・クーポン）', x.tech, 'accent'],
+    ['店販', x.goods, 'green'],
+    ['指名料', x.nominate_fee, 'purple'],
+    ['割引', x.discount, 'warn'],
+    ['利用ポイント', -x.points, 'warn'],
+  ].filter(r => r[1]);
+  const plus = rows.filter(r => r[1] > 0).reduce((a, b) => a + b[1], 0) || 1;
+  return `<div class="panel routes">` + rows.map(([k, v, c]) =>
+    `<div class="r"><b>${k}</b>
+      <div class="bar"><i style="width:${Math.min(100, Math.abs(v) / plus * 100).toFixed(1)}%;
+        background:var(--${c})"></i></div>
+      <span class="num" style="color:var(--${v < 0 ? 'warn' : 'ink2'})">${v > 0 ? '' : '−'}${yen(Math.abs(v))}円</span></div>`).join('') +
+    `<div class="r" style="border-top:1px solid var(--line);padding-top:9px;margin-top:2px">
+      <b>純売上</b><div></div><span class="num" style="font-weight:700;color:var(--ink)">${yen(x.net)}円</span></div>
+    </div>`;
 }
 
 function goal(label, value, target, fmt, invert) {
@@ -74,7 +127,8 @@ function renderStore() {
   h += `<div class="hero"><div class="lab">純売上</div>
     <div class="big">${yen(s.net)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
     <div class="sub">${delta(s.net, pv?.net) || '&nbsp;'}　稼働 ${s.headcount}名</div>
-    <div style="margin-top:14px">${chart('net', true, '円')}</div></div>`;
+    <div style="margin-top:14px">${chart('net', true, '円')}</div>
+    <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
     <div><div class="k">客数</div><div class="v">${yen(s.customers)}</div><div class="d">${delta(s.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">客単価</div><div class="v">${yen(s.avg)}</div><div class="d">${delta(s.avg, pv?.avg) || '円'}</div></div>
@@ -108,6 +162,13 @@ function renderStore() {
       `</tbody></table></div>`;
   }
   h += `</section>`;
+
+  h += `<section><h2>日ごとの売上</h2>
+    <p class="lede">棒を長押しすると、その日の売上と客数が出ます。</p>
+    <div class="panel">${daily(s.daily)}</div></section>`;
+
+  h += `<section><h2>売上の内訳</h2>
+    <p class="lede">足し引きすると純売上になります。</p>${breakdown(s)}</section>`;
 
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
   const tot = rs.reduce((a, b) => a + b[1], 0) || 1;
@@ -196,12 +257,19 @@ function renderPerson() {
   h += `<div class="hero"><div class="lab">純売上</div>
     <div class="big">${yen(x.net)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
     <div class="sub">${delta(x.net, pv?.net) || '&nbsp;'}　担当 ${x.customers}人</div>
-    <div style="margin-top:14px">${chart('net', false, '円')}</div></div>`;
+    <div style="margin-top:14px">${chart('net', false, '円')}</div>
+    <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
     <div><div class="k">客単価</div><div class="v">${yen(x.avg)}</div><div class="d">店舗 ${yen(s.avg)}円</div></div>
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
     <div><div class="k">店販売上</div><div class="v">${yen(x.goods)}</div><div class="d">${x.goods_buyers}人が購入・平均${yen(x.goods_per_buyer)}円</div></div>
   </div>`;
+  h += `<section><h2>日ごとの売上</h2>
+    <p class="lede">棒を長押しすると、その日の売上と客数が出ます。</p>
+    <div class="panel">${daily(x.daily)}</div></section>`;
+
+  h += `<section><h2>売上の内訳</h2>${breakdown(x)}</section>`;
+
   h += `<section><h2>目標に対して</h2><p class="lede">かっこ内は店舗全体の数字です。</p><div class="panel goal">
     ${goal(`次回予約率（店舗 ${pct(s.rebook_rate)}）`, x.rebook_rate, T.rebook_rate, pct)}
     ${x.return ? goal(`リターン率（新規${x.return.judged}人中 ${x.return.returned}人・店舗 ${s.return ? pct(s.return.rate) : '—'}）`,
@@ -231,6 +299,13 @@ function render() {
     view === 'store' ? renderStore() : view === 'rank' ? renderRank() : renderPerson();
   window.scrollTo({top: 0, behavior: 'instant'});
 }
+
+document.getElementById('view').addEventListener('click', ev => {
+  const t = ev.target.closest('.mbar');
+  if (!t) return;
+  const m = t.getAttribute('data-m');
+  if (m && P.data[m] && m !== month) { month = m; selM.value = m; render(); }
+});
 
 document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.seg button').forEach(t => t.setAttribute('aria-selected', String(t === b)));

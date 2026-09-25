@@ -92,7 +92,22 @@ def _metrics(d, all_df=None, month=None):
     # 支払い方法
     m["payments"] = {str(k): int(v) for k, v in
                      b["支払い方法"].fillna("不明").value_counts().items()}
+    m["daily"] = _daily(d)
     return m
+
+
+def _daily(d):
+    """日ごとの売上と客数。[日, 純売上, 客数] の配列"""
+    if d.empty:
+        return []
+    day = d["来店日"].dt.day
+    net = d.groupby(day)["金額"].sum()
+    cnt = d.groupby(day)["会計ID"].nunique()
+    last = int(d["来店日"].dt.day.max())
+    out = []
+    for i in range(1, last + 1):
+        out.append([i, float(net.get(i, 0)), int(cnt.get(i, 0))])
+    return out
 
 
 def _visit_index(all_df):

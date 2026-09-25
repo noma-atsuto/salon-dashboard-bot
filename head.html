@@ -131,6 +131,8 @@ tr.total td:first-child{background:var(--surface2)}
 
 /* ---- グラフ ---- */
 svg.chart{width:100%;height:auto;max-height:190px;display:block;overflow:visible}
+.mbar{cursor:pointer}
+svg.chart rect.mbar:hover~rect,svg.chart rect.mbar:hover{opacity:.85}
 .foot{color:var(--ink3);font-size:11.5px;margin-top:32px;border-top:1px solid var(--line);
   padding-top:16px;line-height:1.7}
 @media(max-width:560px){

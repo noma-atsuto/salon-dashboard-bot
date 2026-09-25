@@ -16,6 +16,8 @@ def build_payload():
             "nominate_fee", "points", "customers", "new", "repeat", "avg", "new_rate",
             "repeat_rate", "nom_rate", "rebook", "rebook_rate", "treat", "treat_rate",
             "treat_sales", "app_rate", "hpb_rate")
+    # 売上の内訳（合計すると純売上になる）
+    BREAKDOWN = ("tech", "goods", "nominate_fee", "discount", "points")
     STORE_ONLY = ("headcount",)
     for i, m in enumerate(months):
         prev = data[months[i - 1]] if i else None
@@ -26,7 +28,7 @@ def build_payload():
         entry = {
             "end": end, "partial": end != last,
             "store": {**{k: s[k] for k in KEYS}, **{k: s.get(k) for k in STORE_ONLY},
-                      "return": s.get("return"),
+                      "return": s.get("return"), "daily": s.get("daily", []),
                       "routes": s["routes"], "payments": s["payments"]},
             "top_goods": data[m]["top_goods"], "top_menus": data[m]["top_menus"],
             "store_feedback": feedback.store_feedback(s, prev["store"] if prev else None),
@@ -37,7 +39,7 @@ def build_payload():
             pv = prev["stylists"].get(name) if prev else None
             entry["stylists"].append({
                 "name": name, **{k: p[k] for k in KEYS}, "return": p.get("return"),
-                "routes": p["routes"],
+                "routes": p["routes"], "daily": p.get("daily", []),
                 "feedback": feedback.stylist_feedback(p, s, pv),
             })
         payload["data"][m] = entry
