@@ -45,6 +45,8 @@ def _slice(d):
     return {
         "tech": float(menu), "discount": float(disc), "goods": float(g),
         "nominate_fee": float(nomi), "points": float(-point),
+        # 総売上＝割引とポイントを引く前。純売上＝そこから引いたあと
+        "gross": float(menu + g + nomi),
         "net": float(menu + disc + g + nomi + point),
         "goods_items": int(goods["個数"].sum()),
     }
@@ -73,8 +75,12 @@ def _metrics(d, all_df=None, month=None):
     m["avg"] = m["net"] / n if n else 0.0
     m["new_rate"] = m["new"] / n * 100 if n else 0.0
     m["repeat_rate"] = m["repeat"] / n * 100 if n else 0.0
-    m["nom_count"] = int((b["指名"].astype(str).str.strip().isin(["指名", "有", "1", "あり"])).sum())
+    # 「指名」列は 指名予約 / フリー予約 の2値
+    nm = b["指名"].fillna("").astype(str)
+    m["nom_count"] = int(nm.str.startswith("指名").sum())
+    m["free_count"] = int(nm.str.startswith("フリー").sum())
     m["nom_rate"] = m["nom_count"] / n * 100 if n else 0.0
+    m["free_rate"] = m["free_count"] / n * 100 if n else 0.0
     routes = b["予約経路"].fillna("不明").value_counts().to_dict()
     m["routes"] = {k: int(v) for k, v in routes.items()}
     m["rebook"] = int(routes.get("次回予約", 0))

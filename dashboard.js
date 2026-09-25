@@ -152,7 +152,10 @@ function breakdown(x) {
     ['利用ポイント', -x.points, 'warn'],
   ].filter(r => r[1]);
   const plus = rows.filter(r => r[1] > 0).reduce((a, b) => a + b[1], 0) || 1;
-  return `<div class="panel routes">` + rows.map(([k, v, c]) =>
+  const head = `<div class="r" style="padding-bottom:9px;margin-bottom:2px;border-bottom:1px solid var(--line)">
+      <b>総売上（割引前）</b><div></div>
+      <span class="num" style="font-weight:700;color:var(--ink)">${yen(x.gross)}円</span></div>`;
+  return `<div class="panel routes">` + head + rows.map(([k, v, c]) =>
     `<div class="r"><b>${k}</b>
       <div class="bar"><i style="width:${Math.min(100, Math.abs(v) / plus * 100).toFixed(1)}%;
         background:var(--${c})"></i></div>
@@ -189,8 +192,11 @@ function renderStore() {
     <div style="margin-top:14px">${chart('net', true, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
-    <div><div class="k">客数</div><div class="v">${yen(s.customers)}</div><div class="d">${delta(s.customers, pv?.customers) || '人'}</div></div>
+    <div><div class="k">総売上（割引前）</div><div class="v">${yen(s.gross)}</div><div class="d">${delta(s.gross, pv?.gross) || '円'}</div></div>
+    <div><div class="k">純売上</div><div class="v">${yen(s.net)}</div><div class="d">割引 ${yen(s.gross - s.net)}円を差引</div></div>
     <div><div class="k">客単価</div><div class="v">${yen(s.avg)}</div><div class="d">${delta(s.avg, pv?.avg) || '円'}</div></div>
+    <div><div class="k">店販売上</div><div class="v">${yen(s.goods)}</div><div class="d">${delta(s.goods, pv?.goods) || '円'}</div></div>
+    <div><div class="k">客数</div><div class="v">${yen(s.customers)}</div><div class="d">${delta(s.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規／再来</div><div class="v">${s.new}／${s.repeat}</div><div class="d">再来率 ${pct(s.repeat_rate)}</div></div>
   </div>`;
 
@@ -272,11 +278,13 @@ function renderStore() {
 function renderRank() {
   const d = cur(), s = d.store;
   const cols = [
+    ['総売上', x => yen(x.gross) + '円'],
     ['純売上', x => yen(x.net) + '円'],
     ['客数', x => x.customers],
     ['客単価', x => yen(x.avg) + '円', x => x.avg >= s.avg ? 1 : 0],
     ['新規率', x => pct(x.new_rate)],
     ['指名率', x => pct(x.nom_rate)],
+    ['フリー予約', x => `${x.free_count}件 ${pct(x.free_rate)}`],
     ['次回予約', x => `${x.rebook}件 ${pct(x.rebook_rate)}`, x => x.rebook_rate >= T.rebook_rate ? 1 : (x.rebook_rate <= .5 ? -1 : 0)],
     ['トリートメント', x => pct(x.treat_rate), x => x.treat_rate >= T.treat_rate ? 1 : (x.treat_rate <= 1 ? -1 : 0)],
     ['リターン率', x => x.return ? pct(x.return.rate) : '—',
@@ -297,8 +305,9 @@ function renderRank() {
       return `<td class="${j > 0 ? 'ok' : j < 0 ? 'bad' : ''}">${c[1](x)}</td>`;
     }).join('') + `</tr>`;
   });
-  h += `<tr class="total"><td>店舗全体</td><td>${yen(s.net)}円</td><td>${s.customers}</td>
+  h += `<tr class="total"><td>店舗全体</td><td>${yen(s.gross)}円</td><td>${yen(s.net)}円</td><td>${s.customers}</td>
     <td>${yen(s.avg)}円</td><td>${pct(s.new_rate)}</td><td>${pct(s.nom_rate)}</td>
+    <td>${s.free_count}件 ${pct(s.free_rate)}</td>
     <td>${s.rebook}件 ${pct(s.rebook_rate)}</td><td>${pct(s.treat_rate)}</td>
     <td>${s.return ? pct(s.return.rate) : '—'}</td><td>${yen(s.goods)}円</td>
     <td>${pct(s.goods_buy_rate)}</td><td>${yen(s.goods_per_buyer)}円</td>
@@ -326,9 +335,12 @@ function renderPerson() {
     <div style="margin-top:14px">${chart('net', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
+    <div><div class="k">総売上（割引前）</div><div class="v">${yen(x.gross)}</div><div class="d">${delta(x.gross, pv?.gross) || '円'}</div></div>
+    <div><div class="k">純売上</div><div class="v">${yen(x.net)}</div><div class="d">割引 ${yen(x.gross - x.net)}円を差引</div></div>
     <div><div class="k">客単価</div><div class="v">${yen(x.avg)}</div><div class="d">店舗 ${yen(s.avg)}円</div></div>
-    <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
     <div><div class="k">店販売上</div><div class="v">${yen(x.goods)}</div><div class="d">${x.goods_buyers}人が購入・平均${yen(x.goods_per_buyer)}円</div></div>
+    <div><div class="k">客数</div><div class="v">${yen(x.customers)}</div><div class="d">${delta(x.customers, pv?.customers) || '人'}</div></div>
+    <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
   </div>`;
   h += `<section><h2>日ごとの売上</h2>
     <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>

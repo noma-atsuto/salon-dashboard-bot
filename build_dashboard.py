@@ -11,10 +11,11 @@ def build_payload():
     data = analyze.build()
     months = sorted(data)
     payload = {"months": months, "target": feedback.TARGET, "data": {}}
-    KEYS = ("net", "tech", "goods", "goods_items", "goods_per", "goods_ratio", "discount",
+    KEYS = ("net", "gross", "tech", "goods", "goods_items", "goods_per", "goods_ratio", "discount",
             "goods_buyers", "goods_buy_rate", "goods_per_buyer", "goods_per_item",
             "nominate_fee", "points", "customers", "new", "repeat", "avg", "new_rate",
-            "repeat_rate", "nom_rate", "rebook", "rebook_rate", "treat", "treat_rate",
+            "repeat_rate", "nom_rate", "nom_count", "free_count", "free_rate",
+            "rebook", "rebook_rate", "treat", "treat_rate",
             "treat_sales", "app_rate", "hpb_rate")
     # 売上の内訳（合計すると純売上になる）
     BREAKDOWN = ("tech", "goods", "nominate_fee", "discount", "points")
