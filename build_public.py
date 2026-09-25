@@ -20,7 +20,7 @@ HEAD = """<!doctype html>
 <meta name="theme-color" content="#f7f6f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#131418" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="池袋店の数字">
+<meta name="apple-mobile-web-app-title" content="Sagasu">
 <style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}img{max-width:100%}[hidden]{display:none!important}
@@ -29,34 +29,62 @@ body{margin:0}img{max-width:100%}[hidden]{display:none!important}
 
 LOCK_CSS = """
 <style>
+body.locked{background:var(--surface)}
 body.locked .wrap{display:none}
-#lock{max-width:380px;margin:0 auto;padding:56px 20px 40px;font-family:var(--sans);color:var(--ink)}
-#lock h1{font-size:19px;margin:0 0 4px;font-weight:700}
-#lock p{font-size:13px;color:var(--ink2);margin:0 0 22px;line-height:1.7}
-#lock form{display:flex;flex-direction:column;gap:10px}
-#lock input{font:inherit;font-size:16px;padding:13px 14px;border-radius:11px;
-  border:1px solid var(--line);background:var(--surface);color:var(--ink);min-height:48px}
-#lock input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-#lock button{font:inherit;font-size:15px;font-weight:700;padding:13px;border:0;border-radius:11px;
-  background:var(--accent);color:#fff;cursor:pointer;min-height:48px}
-#lock button:disabled{opacity:.55;cursor:default}
-#lock .err{font-size:13px;color:var(--warn);min-height:20px;font-weight:600}
-#lock .note{font-size:11.5px;color:var(--ink3);margin-top:20px;line-height:1.7}
+#lock{min-height:82vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:32px 20px;font-family:var(--sans);color:var(--ink)}
+#lock .mark{font-size:44px;font-weight:700;letter-spacing:-.045em;margin-bottom:26px;
+  display:flex;align-items:center;gap:2px}
+#lock .mark span:nth-child(1){color:#4a7fd4}
+#lock .mark span:nth-child(2){color:#d9a13b}
+#lock .mark span:nth-child(3){color:#4a7fd4}
+#lock .mark span:nth-child(4){color:#57a86e}
+#lock .mark span:nth-child(5){color:#d9a13b}
+#lock .mark span:nth-child(6){color:#c25b4e}
+#lock form{width:100%;max-width:540px}
+#lock .field{display:flex;align-items:center;gap:11px;border:1px solid var(--line);
+  border-radius:26px;padding:11px 19px;background:var(--surface);
+  box-shadow:0 1px 5px rgba(0,0,0,.06);transition:box-shadow .15s}
+#lock .field:focus-within{box-shadow:0 1px 9px rgba(0,0,0,.14);border-color:transparent}
+#lock .field svg{flex:none;opacity:.45}
+#lock input{flex:1;font:inherit;font-size:16px;border:0;outline:0;background:none;color:var(--ink);
+  min-height:26px}
+#lock .btns{display:flex;gap:11px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+#lock button{font:inherit;font-size:13.5px;padding:10px 19px;border:1px solid var(--line2);
+  border-radius:5px;background:var(--surface2);color:var(--ink2);cursor:pointer;min-height:40px}
+#lock button:hover{border-color:var(--line);box-shadow:0 1px 3px rgba(0,0,0,.08);color:var(--ink)}
+#lock .res{width:100%;max-width:600px;margin-top:30px;font-size:13.5px;color:var(--ink2);
+  line-height:1.9;min-height:24px}
+#lock .res b{color:var(--ink)}
+#lock .res ul{margin:8px 0 0;padding-left:20px}
+#lock .foot{position:fixed;left:0;right:0;bottom:0;padding:13px 20px;background:var(--surface2);
+  border-top:1px solid var(--line2);font-size:11.5px;color:var(--ink3);
+  display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+#lock .foot span{cursor:default}
+@media(max-width:560px){#lock .mark{font-size:36px}#lock{min-height:78vh}}
 </style>
 """
 
 LOCK_HTML = """
 <div id="lock">
-  <h1>池袋店の数字</h1>
-  <p>店舗とスタイリストの実績が入っています。<br>合言葉を入力してください。</p>
-  <form id="lockform">
-    <input id="pw" type="password" inputmode="text" autocomplete="current-password"
-           placeholder="合言葉" aria-label="合言葉" autofocus>
-    <button id="go" type="submit">開く</button>
-    <div class="err" id="err" role="status"></div>
+  <div class="mark" aria-hidden="true">
+    <span>S</span><span>a</span><span>g</span><span>a</span><span>s</span><span>u</span>
+  </div>
+  <form id="lockform" role="search">
+    <div class="field">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle>
+        <path d="M20 20l-3.5-3.5"></path></svg>
+      <input id="pw" type="text" autocomplete="off" autocapitalize="off" autocorrect="off"
+             spellcheck="false" aria-label="検索" autofocus>
+    </div>
+    <div class="btns">
+      <button id="go" type="submit">検索</button>
+      <button type="button" id="lucky">今日の天気</button>
+    </div>
   </form>
-  <p class="note">一度入力すると、この端末では次回から省略されます。<br>
-    合言葉を知らない方には内容が表示されません。</p>
+  <div class="res" id="err" role="status"></div>
+  <div class="foot"><span>ヘルプ</span><span>設定</span><span>プライバシー</span><span>規約</span></div>
 </div>
 """
 
@@ -81,14 +109,16 @@ GATE_JS = """
     return new TextDecoder().decode(plain);
   }
 
-  function start(json) {
+  function start(bundle) {
+    const b = JSON.parse(bundle);
+    document.body.insertAdjacentHTML('beforeend', b.w);
     const p = document.createElement('script');
-    p.id = 'payload'; p.type = 'application/json'; p.textContent = json;
+    p.id = 'payload'; p.type = 'application/json'; p.textContent = b.p;
     document.body.appendChild(p);
-    const code = document.getElementById('appcode').textContent;
-    (0, eval)(code);
+    (0, eval)(b.c);
     document.body.classList.remove('locked');
     lock.remove();
+    if (b.t) { document.title = b.t; }
   }
 
   async function tryOpen(pw, fromSaved) {
@@ -98,7 +128,14 @@ GATE_JS = """
       start(json);
       return true;
     } catch (e) {
-      if (!fromSaved) { err.textContent = '合言葉が違うようです。'; }
+      if (!fromSaved) {
+        const q = document.getElementById('pw').value;
+        err.innerHTML = `<b>${q.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</b>
+          に一致する情報は見つかりませんでした。
+          <ul><li>キーワードに誤字・脱字がないか確認します。</li>
+          <li>別のキーワードを試します。</li>
+          <li>もっと一般的なキーワードに変えてみます。</li></ul>`;
+      }
       try { if (fromSaved) localStorage.removeItem(KEY); } catch (e2) {}
       return false;
     }
@@ -106,9 +143,15 @@ GATE_JS = """
 
   document.getElementById('lockform').addEventListener('submit', async ev => {
     ev.preventDefault();
-    err.textContent = ''; btn.disabled = true; btn.textContent = '確認中…';
+    err.textContent = ''; btn.disabled = true; btn.textContent = '検索中…';
     await tryOpen(document.getElementById('pw').value, false);
-    btn.disabled = false; btn.textContent = '開く';
+    btn.disabled = false; btn.textContent = '検索';
+  });
+
+  const lucky = document.getElementById('lucky');
+  if (lucky) lucky.addEventListener('click', () => {
+    err.innerHTML = '<b>今日の天気</b> — ただいま情報を取得できませんでした。'
+      + '時間をおいてもう一度お試しください。';
   });
 
   let saved = null;
@@ -142,20 +185,31 @@ def main():
         if not m:
             raise SystemExit("payload が見つかりません")
         payload_json = m.group(1)
-        body = body[:m.start()] + body[m.end():]
+        rest = body[:m.start()] + body[m.end():]
 
-        m2 = re.search(r"<script>\s*(.*?)\s*</script>\s*$", body, re.S)
+        m2 = re.search(r"<script>\s*(.*?)\s*</script>\s*$", rest, re.S)
         if not m2:
             raise SystemExit("アプリのコードが見つかりません")
         app_code = m2.group(1)
-        body = body[:m2.start()] + body[m2.end():]
+        rest = rest[:m2.start()] + rest[m2.end():]
 
-        gate = GATE_JS.replace("__CIPHER__",
-                               encrypt(payload_json, pw).replace("\\", "\\\\").replace('"', '\\"'))
-        body = (LOCK_CSS + LOCK_HTML + body
-                + '<script id="appcode" type="text/plain">' + app_code + "</script>" + gate)
-        body = '<script>document.body.className="locked"</script>' + body
-        mode = f"合言葉つき（{ITERATIONS:,}回の鍵伸長 + AES-GCM）"
+        # 見出しやスタイルを除いた「画面そのもの」を取り出す
+        m3 = re.search(r'(<div class="wrap">.*</div>)', rest, re.S)
+        if not m3:
+            raise SystemExit("画面の中身が見つかりません")
+        wrap_html = m3.group(1)
+        head_part = rest[:m3.start()]      # <title> と <style> だけが残る
+
+        mt = re.search(r"<title>(.*?)</title>", head_part, re.S)
+        bundle = json.dumps({"w": wrap_html, "p": payload_json, "c": app_code,
+                             "t": mt.group(1) if mt else ""}, ensure_ascii=False)
+        cipher = encrypt(bundle, pw).replace("\\", "\\\\").replace('"', '\\"')
+        head_part = re.sub(r"<title>.*?</title>", "<title>Sagasu</title>",
+                           head_part, count=1, flags=re.S)
+        body = (head_part + LOCK_CSS + LOCK_HTML
+                + GATE_JS.replace("__CIPHER__", cipher))
+        body = '<script>document.body.className="locked"</' + 'script>' + body
+        mode = f"合言葉つき（{ITERATIONS:,}回の鍵伸長 + AES-GCM／画面ごと暗号化）"
     else:
         mode = "合言葉なし（PAGE_PASSWORD が未設定）"
 

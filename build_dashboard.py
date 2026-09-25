@@ -65,6 +65,7 @@ def main():
             '<div class="seg" role="tablist">'
             '<button data-v="store" role="tab" aria-selected="true">店舗全体</button>'
             '<button data-v="rank" role="tab" aria-selected="false">スタイリスト比較</button>'
+            '<button data-v="rebook" role="tab" aria-selected="false">次回予約</button>'
             '<button data-v="person" role="tab" aria-selected="false">個人カルテ</button>'
             '</div>',
             '</div>',

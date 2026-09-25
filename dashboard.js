@@ -275,10 +275,6 @@ function renderStore() {
     <div id="bs-list" hidden><div class="panel">${breakdownDetail(s, 'bs')}</div></div>
     </section>`;
 
-  h += `<section><h2>次回予約</h2>
-    <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
-    ${rebookBlock(s, s)}</section>`;
-
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
   const tot = rs.reduce((a, b) => a + b[1], 0) || 1;
   h += `<section><h2>ご予約はどこから入っているか</h2>
@@ -358,7 +354,17 @@ function renderRank() {
     <td>${pct(s.goods_buy_rate)}</td><td>${yen(s.goods_per_buyer)}円</td>
     <td>${yen(s.goods_per)}円</td></tr></tbody></table></div></section>`;
 
-  const sr = s.rebook_made;
+  return h;
+}
+
+function renderRebook() {
+  const d = cur(), s = d.store, f = s.rebook_made;
+  let h = partial();
+  h += `<section><h2>次回予約（店舗全体）</h2>
+    <p class="lede">初めてご来店されたお客様から、その場で取れた次回予約を追いかけています。</p>
+    ${rebookBlock(s, s)}</section>`;
+
+  const sr = f;
   const rank = [...d.stylists]
     .map(x => ({n: x.name, f: x.rebook_made}))
     .filter(r => r.f && r.f.first_visits)
@@ -374,6 +380,40 @@ function renderRank() {
          background:var(--${(r.f.take_rate || 0) >= T.rebook_rate ? 'good' : (r.f.take_rate || 0) >= T.rebook_rate / 2 ? 'accent' : 'warn'})"></i></div>
        <span class="num">${r.f.take_rate !== null ? pct(r.f.take_rate) : '—'}　${r.f.made}件／${r.f.first_visits}人</span></div>`).join('')
      : '<p class="mini">この月のデータがありません。</p>') + `</div></section>`;
+
+  h += `<section><h2>スタイリスト別</h2>
+    <p class="lede">${month.slice(0,4)}年${Number(month.slice(5))}月に取った分の内訳です。</p>
+    <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>取得率</th><th>取った</th>
+    <th>初回来店</th><th>来店</th><th>キャンセル</th><th>来店待ち</th></tr></thead><tbody>` +
+    [...d.stylists].map(x => x.rebook_made).map((r, i) => {
+      const x = d.stylists[i];
+      if (!r) return '';
+      const hit = r.take_rate !== null && r.take_rate >= T.rebook_rate;
+      return `<tr><td>${esc(x.name)}</td>
+        <td class="${hit ? 'ok' : (r.take_rate !== null && r.take_rate < 1 ? 'bad' : '')}">${r.take_rate !== null ? pct(r.take_rate) : '—'}</td>
+        <td>${r.made}件</td><td>${r.first_visits}人</td><td>${r.done}件</td>
+        <td>${r.cancelled}件</td><td>${r.upcoming}件</td></tr>`;
+    }).join('') +
+    `<tr class="total"><td>店舗全体</td>
+      <td>${f && f.take_rate !== null ? pct(f.take_rate) : '—'}</td><td>${f ? f.made : 0}件</td>
+      <td>${f ? f.first_visits : 0}人</td><td>${f ? f.done : 0}件</td>
+      <td>${f ? f.cancelled : 0}件</td><td>${f ? f.upcoming : 0}件</td></tr>
+    </tbody></table></div></section>`;
+
+  h += `<section><h2>月ごとの移り変わり</h2>
+    <p class="lede">取った月で並べています。「来店待ち」がある月は、来店率がまだ確定していません。</p>
+    <div class="tbl"><table><thead><tr><th>取った月</th><th>取得率</th><th>取った</th>
+    <th>初回来店</th><th>来店</th><th>キャンセル</th><th>来店待ち</th><th>来店率</th></tr></thead><tbody>` +
+    P.months.map(m => {
+      const r = P.data[m].store.rebook_made;
+      if (!r) return '';
+      const cls = m === month ? ' class="total"' : '';
+      return `<tr${cls}><td>${Number(m.slice(5))}月${P.data[m].partial ? '（途中）' : ''}</td>
+        <td>${r.take_rate !== null ? pct(r.take_rate) : '—'}</td><td>${r.made}件</td>
+        <td>${r.first_visits}人</td><td>${r.done}件</td><td>${r.cancelled}件</td>
+        <td>${r.upcoming}件</td>
+        <td>${r.show_rate !== null ? pct(r.show_rate) : '—'}</td></tr>`;
+    }).join('') + `</tbody></table></div></section>`;
   return h;
 }
 
@@ -441,7 +481,8 @@ function render() {
   const show = view === 'person';
   selS.hidden = !show; lblS.hidden = !show;
   document.getElementById('view').innerHTML =
-    view === 'store' ? renderStore() : view === 'rank' ? renderRank() : renderPerson();
+    view === 'store' ? renderStore() : view === 'rank' ? renderRank()
+    : view === 'rebook' ? renderRebook() : renderPerson();
   window.scrollTo({top: 0, behavior: 'instant'});
 }
 

@@ -47,13 +47,19 @@ def load_rebook():
 
 
 def first_visit_days(df):
-    """お客様ごとの「1回目の来店日」の一覧"""
-    bills = _bills(df)[["客ID名", "来店日"]].dropna(subset=["来店日"])
-    seq = collections.defaultdict(set)
-    for cid, day in zip(bills["客ID名"], bills["来店日"]):
-        if cid:
-            seq[cid].add(day.date())
-    return {(cid, min(days)) for cid, days in seq.items() if days}
+    """お客様ごとの「1回目の来店日」の一覧。
+
+    手元のデータは直近数ヶ月分しかないため、来店日を数えるだけだと
+    「前から通っているお客様」も1回目に見えてしまう。
+    ビューティーメリットは全期間の履歴を持っていて、それが会計データの
+    「新規／再来」欄に入っているので、そちらを正として判定する。
+    """
+    bills = _bills(df)[["客ID名", "来店日", "新規再来"]].dropna(subset=["来店日"])
+    out = set()
+    for cid, day, kind in zip(bills["客ID名"], bills["来店日"], bills["新規再来"]):
+        if cid and kind == "新規":
+            out.add((cid, day.date()))
+    return out
 
 
 def mark_first_visit(rb, df):
@@ -183,13 +189,7 @@ def _metrics(d, all_df=None, month=None, first_days=None):
     m["daily"] = _daily(d)
     m["detail"] = _detail(d)
     # 初回来店のお客様が何人いたか（次回予約の取得率の分母）
-    if first_days is not None:
-        bb = b[["客ID名", "来店日"]].dropna()
-        m["first_visits"] = int(sum(
-            1 for cid, day in zip(bb["客ID名"], bb["来店日"])
-            if cid and (cid, day.date()) in first_days))
-    else:
-        m["first_visits"] = 0
+    m["first_visits"] = m["new"]     # 初回来店のお客様＝新規のお客様
     return m
 
 
