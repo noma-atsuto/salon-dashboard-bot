@@ -93,20 +93,58 @@ def _metrics(d, all_df=None, month=None):
     m["payments"] = {str(k): int(v) for k, v in
                      b["支払い方法"].fillna("不明").value_counts().items()}
     m["daily"] = _daily(d)
+    m["detail"] = _detail(d)
     return m
 
 
+def _detail(d, top=15):
+    """売上の内訳を、もう一段細かく分解する"""
+    def rank(q, key):
+        g = q.groupby(key)["金額"].agg(["count", "sum"]).sort_values("sum", ascending=False)
+        rows = [[str(k), int(v["count"]), float(v["sum"])] for k, v in g.iterrows()]
+        if len(rows) > top:
+            rest = rows[top:]
+            rows = rows[:top] + [["その他 " + str(len(rest)) + "件", sum(r[1] for r in rest),
+                                  sum(r[2] for r in rest)]]
+        return rows
+
+    tech = d[(d["区分"] == "技術") & (d["カテゴリ"].isin(["メニュー", "クーポン"]))].copy()
+    # 「カット:カット 【プライムスタイリスト】￥6900」の "カット" の部分で分ける。
+    # クーポンには区分がないので「クーポン」としてまとめる。
+    tech["分類"] = [
+        (n.split(":", 1)[0] if ":" in n else "クーポン") for n in tech["項目名"]
+    ]
+    goods = d[d["区分"] == "商品"].copy()
+    goods["名前"] = goods["項目名"].str.replace("^店販:", "", regex=True)
+    disc = d[(d["区分"] == "技術") & (d["カテゴリ"] == "割引クーポン")]
+    nomi = d[(d["区分"] == "その他") & (d["カテゴリ"] == "その他")].copy()
+    nomi["区分け"] = nomi["単価"].map(lambda v: f"{int(v):,}円の指名料")
+    pt = d[(d["区分"] == "その他") & (d["カテゴリ"] == "ポイント")].copy()
+    pt["経路"] = pt["予約経路"].fillna("不明")
+    return {
+        "tech": rank(tech, "分類"),
+        "tech_items": rank(tech, "項目名"),
+        "goods": rank(goods, "名前"),
+        "discount": rank(disc, "項目名"),
+        "nominate": rank(nomi, "区分け"),
+        "points": rank(pt, "経路"),
+    }
+
+
 def _daily(d):
-    """日ごとの売上と客数。[日, 純売上, 客数] の配列"""
+    """日ごとの数字。[日, 純売上, 客数, 店販] の配列"""
     if d.empty:
         return []
     day = d["来店日"].dt.day
     net = d.groupby(day)["金額"].sum()
     cnt = d.groupby(day)["会計ID"].nunique()
-    last = int(d["来店日"].dt.day.max())
+    gd = d[d["区分"] == "商品"]
+    goods = gd.groupby(gd["来店日"].dt.day)["金額"].sum() if not gd.empty else {}
+    last = int(day.max())
     out = []
     for i in range(1, last + 1):
-        out.append([i, float(net.get(i, 0)), int(cnt.get(i, 0))])
+        g = goods.get(i, 0) if hasattr(goods, "get") else 0
+        out.append([i, float(net.get(i, 0)), int(cnt.get(i, 0)), float(g)])
     return out
 
 

@@ -53,6 +53,39 @@ function chart(key, isStore, unit) {
     stroke-width=".3"></line>${bars}${labs}</svg>`;
 }
 
+/* 日別：グラフと一覧を切り替えられる形で返す */
+function dailyBlock(rows, id) {
+  if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
+  return `<div class="switch">
+      <button type="button" class="dtab" data-t="${id}" data-v="chart" aria-selected="true">グラフ</button>
+      <button type="button" class="dtab" data-t="${id}" data-v="list" aria-selected="false">一覧</button>
+    </div>
+    <div id="${id}-chart">${daily(rows)}</div>
+    <div id="${id}-list" hidden>${dailyTable(rows)}</div>`;
+}
+
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+
+function dailyTable(rows) {
+  const y = Number(month.slice(0, 4)), mo = Number(month.slice(5));
+  const sum = rows.reduce((a, r) => [a[0] + r[1], a[1] + r[2], a[2] + r[3]], [0, 0, 0]);
+  let h = `<div class="tbl"><table><thead><tr>
+    <th>日付</th><th>売上</th><th>客数</th><th>客単価</th><th>店販</th></tr></thead><tbody>`;
+  rows.forEach(([d, v, c, g]) => {
+    const w = new Date(y, mo - 1, d).getDay();
+    const off = v === 0;
+    h += `<tr${off ? ' style="opacity:.5"' : ''}>
+      <td>${mo}/${d}<span class="wd ${w === 0 ? 'sun' : w === 6 ? 'sat' : ''}">（${WD[w]}）</span></td>
+      <td>${off ? '—' : yen(v) + '円'}</td>
+      <td>${off ? '—' : c + '人'}</td>
+      <td>${c ? yen(v / c) + '円' : '—'}</td>
+      <td>${g ? yen(g) + '円' : '—'}</td></tr>`;
+  });
+  h += `<tr class="total"><td>合計</td><td>${yen(sum[0])}円</td><td>${sum[1]}人</td>
+    <td>${sum[1] ? yen(sum[0] / sum[1]) + '円' : '—'}</td><td>${yen(sum[2])}円</td></tr>`;
+  return h + `</tbody></table></div>`;
+}
+
 /* 日別の売上（棒グラフ） */
 function daily(rows) {
   if (!rows || !rows.length) return '<p class="mini">この月のデータがありません。</p>';
@@ -81,6 +114,32 @@ function daily(rows) {
     stroke-width=".25"></line>${bars}${labs}</svg>
     <p class="mini" style="margin-top:8px">営業 ${open}日／1日平均 ${yen(sum / Math.max(open, 1))}円　
     いちばん多かったのは ${best[0]}日の ${yen(best[1])}円（${best[2]}人）</p>`;
+}
+
+/* 売上の内訳：細かい分解 */
+function detailTable(rows, unit) {
+  if (!rows || !rows.length) return '<p class="mini">この月はありません。</p>';
+  const tot = rows.reduce((a, r) => a + Math.abs(r[2]), 0) || 1;
+  return `<div class="tbl"><table><thead><tr>
+    <th>${unit || '項目'}</th><th>件数</th><th>金額</th><th>割合</th></tr></thead><tbody>` +
+    rows.map(([k, c, v]) => `<tr><td>${esc(k)}</td><td>${c}</td>
+      <td style="${v < 0 ? 'color:var(--warn)' : ''}">${v < 0 ? '−' : ''}${yen(Math.abs(v))}円</td>
+      <td>${(Math.abs(v) / tot * 100).toFixed(1)}%</td></tr>`).join('') +
+    `</tbody></table></div>`;
+}
+
+function breakdownDetail(x, id) {
+  const d = x.detail || {};
+  const blocks = [
+    ['tech', '技術の内訳（メニューの種類ごと）', 'メニューの種類'],
+    ['tech_items', '技術の内訳（メニュー名ごと）', 'メニュー名'],
+    ['goods', '店販の内訳', '商品'],
+    ['nominate', '指名料', '区分'],
+    ['discount', '割引の内訳', 'クーポン'],
+    ['points', '利用ポイント', '予約経路'],
+  ].filter(b => (d[b[0]] || []).length);
+  return blocks.map(([k, title, unit], i) =>
+    `<h3 style="margin-top:${i ? 20 : 4}px">${title}</h3>${detailTable(d[k], unit)}`).join('');
 }
 
 /* 売上の内訳 */
@@ -164,11 +223,18 @@ function renderStore() {
   h += `</section>`;
 
   h += `<section><h2>日ごとの売上</h2>
-    <p class="lede">棒を長押しすると、その日の売上と客数が出ます。</p>
-    <div class="panel">${daily(s.daily)}</div></section>`;
+    <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
+    <div class="panel">${dailyBlock(s.daily, 'ds')}</div></section>`;
 
   h += `<section><h2>売上の内訳</h2>
-    <p class="lede">足し引きすると純売上になります。</p>${breakdown(s)}</section>`;
+    <p class="lede">足し引きすると純売上になります。「細かく」を押すと、中身まで見られます。</p>
+    <div class="switch">
+      <button type="button" class="dtab" data-t="bs" data-v="chart" aria-selected="true">ざっくり</button>
+      <button type="button" class="dtab" data-t="bs" data-v="list" aria-selected="false">細かく</button>
+    </div>
+    <div id="bs-chart">${breakdown(s)}</div>
+    <div id="bs-list" hidden><div class="panel">${breakdownDetail(s, 'bs')}</div></div>
+    </section>`;
 
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
   const tot = rs.reduce((a, b) => a + b[1], 0) || 1;
@@ -265,10 +331,18 @@ function renderPerson() {
     <div><div class="k">店販売上</div><div class="v">${yen(x.goods)}</div><div class="d">${x.goods_buyers}人が購入・平均${yen(x.goods_per_buyer)}円</div></div>
   </div>`;
   h += `<section><h2>日ごとの売上</h2>
-    <p class="lede">棒を長押しすると、その日の売上と客数が出ます。</p>
-    <div class="panel">${daily(x.daily)}</div></section>`;
+    <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
+    <div class="panel">${dailyBlock(x.daily, 'dp')}</div></section>`;
 
-  h += `<section><h2>売上の内訳</h2>${breakdown(x)}</section>`;
+  h += `<section><h2>売上の内訳</h2>
+    <p class="lede">「細かく」を押すと、中身まで見られます。</p>
+    <div class="switch">
+      <button type="button" class="dtab" data-t="bp" data-v="chart" aria-selected="true">ざっくり</button>
+      <button type="button" class="dtab" data-t="bp" data-v="list" aria-selected="false">細かく</button>
+    </div>
+    <div id="bp-chart">${breakdown(x)}</div>
+    <div id="bp-list" hidden><div class="panel">${breakdownDetail(x, 'bp')}</div></div>
+    </section>`;
 
   h += `<section><h2>目標に対して</h2><p class="lede">かっこ内は店舗全体の数字です。</p><div class="panel goal">
     ${goal(`次回予約率（店舗 ${pct(s.rebook_rate)}）`, x.rebook_rate, T.rebook_rate, pct)}
@@ -301,6 +375,15 @@ function render() {
 }
 
 document.getElementById('view').addEventListener('click', ev => {
+  const tab = ev.target.closest('.dtab');
+  if (tab) {
+    const id = tab.dataset.t, v = tab.dataset.v;
+    document.querySelectorAll(`.dtab[data-t="${id}"]`).forEach(b =>
+      b.setAttribute('aria-selected', String(b === tab)));
+    document.getElementById(id + '-chart').hidden = v !== 'chart';
+    document.getElementById(id + '-list').hidden = v !== 'list';
+    return;
+  }
   const t = ev.target.closest('.mbar');
   if (!t) return;
   const m = t.getAttribute('data-m');

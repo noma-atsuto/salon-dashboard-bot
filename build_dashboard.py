@@ -29,6 +29,7 @@ def build_payload():
             "end": end, "partial": end != last,
             "store": {**{k: s[k] for k in KEYS}, **{k: s.get(k) for k in STORE_ONLY},
                       "return": s.get("return"), "daily": s.get("daily", []),
+                      "detail": s.get("detail", {}),
                       "routes": s["routes"], "payments": s["payments"]},
             "top_goods": data[m]["top_goods"], "top_menus": data[m]["top_menus"],
             "store_feedback": feedback.store_feedback(s, prev["store"] if prev else None),
@@ -39,7 +40,7 @@ def build_payload():
             pv = prev["stylists"].get(name) if prev else None
             entry["stylists"].append({
                 "name": name, **{k: p[k] for k in KEYS}, "return": p.get("return"),
-                "routes": p["routes"], "daily": p.get("daily", []),
+                "routes": p["routes"], "daily": p.get("daily", []), "detail": p.get("detail", {}),
                 "feedback": feedback.stylist_feedback(p, s, pv),
             })
         payload["data"][m] = entry
