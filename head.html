@@ -1,0 +1,142 @@
+<title>池袋店スタイリスト分析</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --paper:#f7f6f2; --surface:#ffffff; --surface2:#faf9f5;
+  --ink:#191a1d; --ink2:#5c5a52; --ink3:#8b8981;
+  --line:#e4e1d8; --line2:#efece4;
+  --accent:#2d4a7c; --accent-soft:#e7edf7;
+  --good:#1a7a58; --good-soft:#e2f2ea;
+  --warn:#b1412f; --warn-soft:#fbe9e5;
+  --caution:#8d6205; --caution-soft:#f9f0d8;
+  --sans:"IBM Plex Sans","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --paper:#131418; --surface:#1b1d22; --surface2:#21242b;
+  --ink:#f1f0ea; --ink2:#a5a39a; --ink3:#7a7871;
+  --line:#2d3038; --line2:#24272e;
+  --accent:#8fb0e8; --accent-soft:#1c2637;
+  --good:#5cc79c; --good-soft:#12291f;
+  --warn:#ed8b7d; --warn-soft:#2e1a17;
+  --caution:#d9a83f; --caution-soft:#2a2211;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#131418; --surface:#1b1d22; --surface2:#21242b;
+  --ink:#f1f0ea; --ink2:#a5a39a; --ink3:#7a7871;
+  --line:#2d3038; --line2:#24272e;
+  --accent:#8fb0e8; --accent-soft:#1c2637;
+  --good:#5cc79c; --good-soft:#12291f;
+  --warn:#ed8b7d; --warn-soft:#2e1a17;
+  --caution:#d9a83f; --caution-soft:#2a2211;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);margin:0;
+  font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%;
+  font-feature-settings:"palt" 1}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:0 72px}
+
+/* ---- 上部固定バー ---- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);
+  border-bottom:1px solid var(--line);margin-inline:-16px;padding:12px 16px 0}
+.brand{font-size:11px;letter-spacing:.09em;color:var(--ink3);text-transform:none;margin:0 0 1px}
+.top h1{font-size:19px;margin:0;letter-spacing:-.01em;font-weight:700;text-wrap:balance}
+.ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+select{font:inherit;font-size:14px;font-weight:500;padding:8px 30px 8px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);min-height:40px;
+  appearance:none;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+  linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 16px) 18px,calc(100% - 11px) 18px;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.seg{display:flex;gap:2px;background:var(--line2);border-radius:11px;padding:3px;margin:10px 0 0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch}
+.seg button{font:inherit;font-size:13.5px;font-weight:600;padding:8px 15px;border:0;border-radius:9px;
+  background:none;color:var(--ink2);cursor:pointer;white-space:nowrap;min-height:38px}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--accent);
+  box-shadow:0 1px 3px rgba(0,0,0,.09)}
+.seg button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.topspace{height:12px}
+
+/* ---- 主要数字 ---- */
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:16px}
+.hero .lab{font-size:12px;color:var(--ink2);font-weight:600;letter-spacing:.03em}
+.hero .big{font-size:clamp(30px,8vw,42px);font-weight:700;letter-spacing:-.025em;line-height:1.15;
+  font-variant-numeric:tabular-nums;margin-top:2px}
+.hero .sub{font-size:13px;color:var(--ink2);margin-top:2px}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:12px}
+.strip div{background:var(--surface);padding:13px 12px}
+.strip .k{font-size:11.5px;color:var(--ink2);font-weight:600}
+.strip .v{font-size:clamp(17px,4.4vw,21px);font-weight:700;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;line-height:1.3;white-space:nowrap}
+.strip .d{font-size:11.5px;color:var(--ink3)}
+.up{color:var(--good);font-weight:700}.down{color:var(--warn);font-weight:700}
+
+/* ---- ブロック ---- */
+section{margin-top:26px}
+h2{font-size:15px;margin:0 0 3px;font-weight:700;letter-spacing:.01em}
+.lede{font-size:12.5px;color:var(--ink2);margin:0 0 12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+
+/* ---- 目標バー ---- */
+.goal{display:flex;flex-direction:column;gap:16px}
+.goal .g{display:grid;grid-template-columns:1fr auto;gap:3px 12px;align-items:baseline}
+.goal .n{font-size:13.5px;font-weight:600}
+.goal .val{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.goal .tgt{font-size:11.5px;color:var(--ink3);grid-column:1/-1;margin-top:-2px}
+.track{grid-column:1/-1;background:var(--line2);border-radius:99px;height:8px;overflow:hidden;margin-top:5px}
+.track i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.track i.ok{background:var(--good)}.track i.bad{background:var(--warn)}
+
+/* ---- 予約経路 ---- */
+.routes{display:flex;flex-direction:column;gap:10px}
+.routes .r{display:grid;grid-template-columns:minmax(88px,auto) 1fr auto;gap:10px;align-items:center;font-size:12.5px}
+.routes .r b{font-weight:600}
+.routes .bar{background:var(--line2);border-radius:99px;height:7px;overflow:hidden}
+.routes .bar i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.routes .num{font-variant-numeric:tabular-nums;color:var(--ink2);white-space:nowrap;font-size:12px}
+
+/* ---- コメント ---- */
+.notes{display:flex;flex-direction:column;gap:9px}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);
+  border-radius:0 11px 11px 0;padding:11px 14px;font-size:13.5px;line-height:1.65}
+.note.g{border-color:var(--good);background:var(--good-soft)}
+.note.r{border-color:var(--warn);background:var(--warn-soft)}
+.note.y{border-color:var(--caution);background:var(--caution-soft)}
+h3{font-size:12px;margin:16px 0 7px;color:var(--ink2);font-weight:700;letter-spacing:.05em}
+h3:first-child{margin-top:0}
+
+/* ---- 表 ---- */
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);
+  border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:700px}
+th,td{padding:10px 12px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;
+  border-bottom:1px solid var(--line2)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);
+  font-variant-numeric:normal;border-right:1px solid var(--line2)}
+thead th{font-size:11px;color:var(--ink2);font-weight:700;letter-spacing:.03em;background:var(--surface2)}
+thead th:first-child{background:var(--surface2)}
+tbody tr:last-child td{border-bottom:0}
+tr.total td{font-weight:700;background:var(--surface2)}
+tr.total td:first-child{background:var(--surface2)}
+.ok{color:var(--good);font-weight:700}.bad{color:var(--warn);font-weight:700}
+
+/* ---- 個人 ---- */
+.who{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+.who h2{font-size:21px;letter-spacing:-.01em}
+.tag{font-size:11.5px;padding:3px 11px;border-radius:99px;background:var(--accent-soft);
+  color:var(--accent);font-weight:700}
+
+/* ---- グラフ ---- */
+svg.chart{width:100%;height:auto;max-height:190px;display:block;overflow:visible}
+.foot{color:var(--ink3);font-size:11.5px;margin-top:32px;border-top:1px solid var(--line);
+  padding-top:16px;line-height:1.7}
+@media(max-width:560px){
+  .strip{grid-template-columns:1fr 1fr}
+  .strip div:last-child{grid-column:1/-1}
+  .top h1{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>

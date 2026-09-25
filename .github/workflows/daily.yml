@@ -1,0 +1,57 @@
+name: 日次データ更新
+
+on:
+  schedule:
+    # 日本時間 20:30（UTC 11:30）。GitHub 側の混雑で数分〜数十分ずれることがあります
+    - cron: "30 11 * * *"
+  workflow_dispatch:        # 画面から手動実行もできる
+
+concurrency:
+  group: daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: このリポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Python を用意
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: ライブラリを入れる
+        run: pip install -r requirements.txt
+
+      - name: 取得済みデータを復元（過去の月は再取得しないため）
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: bm-cache-${{ github.run_id }}
+          restore-keys: bm-cache-
+
+      - name: ビューティーメリットからデータを取得
+        env:
+          BM_LOGIN_ID: ${{ secrets.BM_LOGIN_ID }}
+          BM_PASSWORD: ${{ secrets.BM_PASSWORD }}
+          TZ: Asia/Tokyo
+        run: python fetch_detail.py
+
+      - name: ページを作る
+        env:
+          TZ: Asia/Tokyo
+        run: python build_public.py
+
+      - name: 公開リポジトリへ反映
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.DEPLOY_KEY }}
+          external_repository: noma-atsuto/ikebukuro-kpi
+          publish_branch: main
+          publish_dir: ./public
+          enable_jekyll: false
+          commit_message: "データ更新"
