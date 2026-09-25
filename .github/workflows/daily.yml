@@ -44,9 +44,10 @@ jobs:
           TZ: Asia/Tokyo
         run: python fetch_detail.py
 
-      - name: ページを作る
+      - name: ページを作る（合言葉つき）
         env:
           TZ: Asia/Tokyo
+          PAGE_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
         run: python build_public.py
 
       - name: 公開リポジトリへ反映（変化がなければ何もしません）
