@@ -236,6 +236,7 @@ def _metrics(d, all_df=None, month=None, first_days=None):
     m["workdays_sales"] = acc_days
     m["workdays"] = acc_days
     m["workday_source"] = "sales"
+    m["gross_per_day"] = 0.0
     return m
 
 
@@ -358,6 +359,7 @@ def build():
                 mm["workdays"] = w
                 mm["workday_source"] = "shift"
             mm["net_per_day"] = mm["net"] / mm["workdays"] if mm["workdays"] else 0.0
+            mm["gross_per_day"] = mm["gross"] / mm["workdays"] if mm["workdays"] else 0.0
             mm["cust_per_day"] = mm["customers"] / mm["workdays"] if mm["workdays"] else 0.0
         store["headcount"] = len(people)
         out[mo] = {"store": store, "stylists": people,
@@ -366,9 +368,12 @@ def build():
     return out
 
 
-# 目標の作り方：過去の「1日あたり純売上」の平均に、その月の出勤日数をかける。
-# 少し上を目指す分として GROWTH を掛ける（1.00 なら実力どおり）。
-GROWTH = 1.05
+# 目標の作り方
+#   基準 = 過去の「1日あたり総売上」のうち、いちばん良かった月の水準
+#          （一度は実際に出している数字なので、強気だが再現できる）
+#   目標 = 基準 × その月の出勤日数 × GROWTH
+# GROWTH を 1.00 にすると「最高の月を毎月続ける」が目標になる。
+GROWTH = 1.00
 LOOKBACK = 6          # さかのぼる月数（集計が終わった月のみ）
 
 
@@ -384,22 +389,24 @@ def build_targets(out, sh, months):
         people = {}
         total = 0.0
         for name, p in entry["stylists"].items():
-            vals = [out[m]["stylists"][name]["net_per_day"]
+            vals = [(m, out[m]["stylists"][name]["gross_per_day"])
                     for m in past
-                    if name in out[m]["stylists"] and out[m]["stylists"][name]["net_per_day"]]
+                    if name in out[m]["stylists"] and out[m]["stylists"][name]["gross_per_day"]]
             if not vals:
                 continue
-            base = sum(vals) / len(vals)
+            best_m, best = max(vals, key=lambda kv: kv[1])
+            avg = sum(v for _, v in vals) / len(vals)
             days = shift_days_planned(sh, mo, name) or p["workdays"]
-            goal = base * GROWTH * days
-            people[name] = {"base_per_day": base, "days": days, "target": goal,
-                            "actual": p["net"], "months_used": len(vals)}
+            goal = best * GROWTH * days
+            people[name] = {"base_per_day": best, "avg_per_day": avg, "best_month": best_m,
+                            "days": days, "target": goal,
+                            "actual": p["gross"], "months_used": len(vals)}
             total += goal
         # 店舗目標：スタイリストの合計に、フリー枠など一覧外の分を過去比で足す
         share = []
         for m in past:
-            tot = out[m]["store"]["net"]
-            sub = sum(v["net"] for v in out[m]["stylists"].values())
+            tot = out[m]["store"]["gross"]
+            sub = sum(v["gross"] for v in out[m]["stylists"].values())
             if sub:
                 share.append(tot / sub)
         ratio = sum(share) / len(share) if share else 1.0

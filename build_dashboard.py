@@ -18,7 +18,7 @@ def build_payload():
             "repeat_rate", "nom_rate", "nom_count", "free_count", "free_rate",
             "rebook", "rebook_rate", "treat", "treat_rate",
             "treat_sales", "app_rate", "hpb_rate", "first_visits",
-            "workdays", "net_per_day", "cust_per_day", "workday_source")
+            "workdays", "net_per_day", "gross_per_day", "cust_per_day", "workday_source")
     # 売上の内訳（合計すると純売上になる）
     BREAKDOWN = ("tech", "goods", "nominate_fee", "discount", "points")
     STORE_ONLY = ("headcount",)
@@ -53,6 +53,7 @@ def build_payload():
     # 目標は、集計が終わった過去の月を見て決める
     tmp = {m: {"partial": payload["data"][m]["partial"],
                "store": {"net": data[m]["store"]["net"],
+                         "gross": data[m]["store"]["gross"],
                          "workdays": data[m]["store"]["workdays"]},
                "stylists": data[m]["stylists"]} for m in months}
     analyze.build_targets(tmp, shift, months)

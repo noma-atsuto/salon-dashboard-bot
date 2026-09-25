@@ -467,42 +467,45 @@ function renderGoal() {
     return h + `<section><div class="panel"><p>この月の目標は出せません。<br>
       目標は、それより前の「集計が終わった月」の実績をもとに計算しています。</p></div></section>`;
   }
-  const rate = t.store ? s.net / t.store * 100 : 0;
-  const left = Math.max(0, t.store - s.net);
+  const act = s.gross;                       // 目標は総売上で見る
+  const rate = t.store ? act / t.store * 100 : 0;
+  const left = Math.max(0, t.store - act);
   // 当月が途中なら、経過した出勤日から見たペースを出す
   const doneDays = s.workdays, planDays = t.store_days || s.workdays;
-  const pace = (planDays && doneDays) ? (s.net / doneDays * planDays) / t.store * 100 : null;
+  const pace = (planDays && doneDays) ? (act / doneDays * planDays) / t.store * 100 : null;
 
-  h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の売上目標（店舗）</div>
+  h += `<div class="hero"><div class="lab">${Number(month.slice(5))}月の総売上目標（店舗）</div>
     <div class="big">${yen(t.store)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
     <div class="sub">出勤のべ ${planDays}日ぶん</div>
     <div class="track" style="margin-top:14px;height:12px">
       <i class="${rate >= 100 ? 'ok' : rate >= 80 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>
-    <div class="sub" style="margin-top:8px">実績 <b>${yen(s.net)}円</b>　達成率 <b>${pct(rate)}</b>
+    <div class="sub" style="margin-top:8px">総売上 <b>${yen(act)}円</b>　達成率 <b>${pct(rate)}</b>
       ${left > 0 ? `　あと ${yen(left)}円` : '　達成しました'}</div></div>`;
 
   h += `<div class="strip">
-    <div><div class="k">目標</div><div class="v">${yen(t.store)}</div><div class="d">円</div></div>
-    <div><div class="k">実績</div><div class="v">${yen(s.net)}</div><div class="d">${d.partial ? month.slice(5) + '月' + d.end.slice(8) + '日まで' : '確定'}</div></div>
+    <div><div class="k">目標（総売上）</div><div class="v">${yen(t.store)}</div><div class="d">円</div></div>
+    <div><div class="k">実績（総売上）</div><div class="v">${yen(act)}</div><div class="d">${d.partial ? Number(month.slice(5)) + '月' + Number(d.end.slice(8)) + '日まで' : '確定'}</div></div>
     <div><div class="k">達成率</div><div class="v">${pct(rate)}</div><div class="d">${left > 0 ? 'あと ' + yen(left) + '円' : '達成'}</div></div>
     ${d.partial && pace !== null ? `<div><div class="k">このペースだと</div><div class="v">${pct(pace)}</div>
       <div class="d">出勤 ${doneDays}／${planDays}日で計算</div></div>` : ''}
   </div>`;
 
   h += `<section><h2>スタイリストごとの目標</h2>
-    <p class="lede">出勤日数をかけて出しています。横にスクロールできます。</p>
+    <p class="lede">すべて総売上（割引前）です。出勤日数をかけて出しています。横にスクロールできます。</p>
     <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>出勤</th>
-    <th>1日あたりの目安</th><th>目標</th><th>実績</th><th>達成率</th><th>残り</th></tr></thead><tbody>` +
+    <th>1日あたりの基準</th><th>その水準を出した月</th><th>目標</th><th>実績</th>
+    <th>達成率</th><th>残り</th></tr></thead><tbody>` +
     Object.entries(t.stylists).sort((a, b) => b[1].target - a[1].target).map(([n, v]) => {
       const r = v.target ? v.actual / v.target * 100 : 0;
       const rest = Math.max(0, v.target - v.actual);
       return `<tr><td>${esc(n)}</td><td>${v.days}日</td><td>${yen(v.base_per_day)}円</td>
+        <td>${Number(v.best_month.slice(5))}月</td>
         <td>${yen(v.target)}円</td><td>${yen(v.actual)}円</td>
         <td class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}">${pct(r)}</td>
         <td>${rest > 0 ? yen(rest) + '円' : '—'}</td></tr>`;
     }).join('') +
-    `<tr class="total"><td>店舗全体</td><td>${planDays}日</td><td>—</td>
-      <td>${yen(t.store)}円</td><td>${yen(s.net)}円</td>
+    `<tr class="total"><td>店舗全体</td><td>${planDays}日</td><td>—</td><td>—</td>
+      <td>${yen(t.store)}円</td><td>${yen(act)}円</td>
       <td class="${rate >= 100 ? 'ok' : rate < 80 ? 'bad' : ''}">${pct(rate)}</td>
       <td>${left > 0 ? yen(left) + '円' : '—'}</td></tr></tbody></table></div></section>`;
 
@@ -510,21 +513,21 @@ function renderGoal() {
     P.months.map(m => {
       const tt = P.data[m].target, ss = P.data[m].store;
       if (!tt) return '';
-      const r = tt.store ? ss.net / tt.store * 100 : 0;
+      const r = tt.store ? ss.gross / tt.store * 100 : 0;
       return `<div class="r"><b>${Number(m.slice(5))}月${P.data[m].partial ? '（途中）' : ''}</b>
         <div class="bar"><i style="width:${Math.min(100, r).toFixed(1)}%;
           background:var(--${r >= 100 ? 'good' : r >= 80 ? 'accent' : 'warn'})"></i></div>
-        <span class="num">${pct(r)}　${yen(ss.net)}／${yen(tt.store)}円</span></div>`;
+        <span class="num">${pct(r)}　${yen(ss.gross)}／${yen(tt.store)}円</span></div>`;
     }).join('') + `</div></section>`;
 
   h += `<section><h2>目標の決め方</h2><div class="panel">
-    <p style="margin:0 0 10px">直近${t.months_used}ヶ月（${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}）の
-    <b>1日あたりの純売上</b>を平均し、その月の<b>出勤日数</b>をかけています。
-    少し上を目指す分として <b>${((t.growth - 1) * 100).toFixed(0)}%</b> 上乗せしています。</p>
-    <div class="note">1人の目標 ＝ 1日あたりの平均 × ${t.growth} × 出勤日数<br>
+    <p style="margin:0 0 10px">直近${t.months_used}ヶ月（${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}）のうち、
+    <b>いちばん良かった月の「1日あたり総売上」</b>を基準にしています。
+    平均ではなく最高の月を使うので強気ですが、<b>一度は実際に出している数字</b>なので届く目標です。</p>
+    <div class="note">1人の目標 ＝ いちばん良かった月の1日あたり総売上${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
       店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの</div>
-    <p class="mini" style="margin-top:10px">上乗せ率を変えたいときは、<b>feedback.py の GROWTH</b> ではなく
-      <b>analyze.py の GROWTH</b>（現在 ${t.growth}）を変更してください。</p>
+    <p class="mini" style="margin-top:10px">「1日あたりの基準」の列に、その水準を出した月を並べています。
+    さらに上乗せしたいときは <b>analyze.py の GROWTH</b>（現在 ${t.growth}）を 1.05 などに変更してください。</p>
     </div></section>`;
   return h;
 }
@@ -554,9 +557,10 @@ function renderPerson() {
     const r = tg.target ? tg.actual / tg.target * 100 : 0;
     const rest = Math.max(0, tg.target - tg.actual);
     h += `<section><h2>${Number(month.slice(5))}月の目標</h2>
-      <p class="lede">出勤${tg.days}日 × 1日あたり ${yen(tg.base_per_day)}円 で計算しています。</p>
+      <p class="lede">出勤${tg.days}日 × 1日あたり ${yen(tg.base_per_day)}円（${Number(tg.best_month.slice(5))}月に出した水準）。
+      いずれも総売上です。</p>
       <div class="panel goal"><div class="g">
-        <span class="n">売上</span><span class="val">${yen(tg.actual)}円</span>
+        <span class="n">総売上</span><span class="val">${yen(tg.actual)}円</span>
         <span class="tgt">目標 ${yen(tg.target)}円　${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span>
         <div class="track"><i class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}"
           style="width:${Math.min(100, r).toFixed(1)}%"></i></div>
