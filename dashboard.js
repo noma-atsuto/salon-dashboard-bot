@@ -372,6 +372,7 @@ function subBlock(id, items) {
 const SERIES_COLORS = ['blue', 'orange', 'green', 'purple', 'red', 'yellow', 'teal', 'pink'];
 const TREND_RANGES = [[3, '3ヶ月'], [6, '半年'], [9, '9ヶ月'], [12, '1年'], [0, '全期間']];
 const TREND_METRICS = [['gross', '総売上', v => yen(v) + '円'],
+                       ['net', '純売上', v => yen(v) + '円'],
                        ['customers', '客数', v => v + '人'],
                        ['avg', '客単価', v => yen(v) + '円']];
 let trendRange = 6, trendKey = 'gross', trendWho = 'store', trendSel = null;
@@ -469,23 +470,24 @@ function trendChart() {
   const rows = series.map(sr => ({name: sr.name, color: sr.color, v: sr.vals[sel]}))
     .filter(r => r.v !== null && r.v > 0).sort((a, b) => b.v - a.v);
 
-  let who = `<div class="switch wrap">
+  let who = `<div class="row2"><span class="rowlab">誰を</span><div class="switch wrap">
       <button type="button" class="twho" data-w="store" aria-selected="${trendWho === 'store'}">店舗全体</button>
       <button type="button" class="twho" data-w="all" aria-selected="${trendWho === 'all'}">全員＋平均</button>
       <button type="button" class="twho" data-w="one"
         aria-selected="${trendWho !== 'store' && trendWho !== 'all'}">1人ずつ</button>
-    </div>`;
+    </div></div>`;
   if (trendWho !== 'store' && trendWho !== 'all') {
-    who += `<div class="switch wrap">` + active.map(nm =>
+    who += `<div class="row2"><span class="rowlab">スタイリスト</span><div class="switch wrap">` + active.map(nm =>
       `<button type="button" class="twho" data-w="${esc(nm)}" aria-selected="${nm === trendWho}">
-        <i class="dot" style="background:var(--${cmap[nm]})"></i>${esc(nm)}</button>`).join('') + `</div>`;
+        <i class="dot" style="background:var(--${cmap[nm]})"></i>${esc(nm)}</button>`).join('') + `</div></div>`;
   }
 
-  return who + `<div class="switch wrap">` +
+  return who + `<div class="row2"><span class="rowlab">期間</span><div class="switch wrap">` +
       TREND_RANGES.map(([r, l]) => `<button type="button" class="trange" data-r="${r}"
-        aria-selected="${r === trendRange}">${l}</button>`).join('') +
+        aria-selected="${r === trendRange}">${l}</button>`).join('') + `</div></div>
+    <div class="row2"><span class="rowlab">見る数字</span><div class="switch wrap">` +
       TREND_METRICS.map(([k, l]) => `<button type="button" class="tmetric" data-k="${k}"
-        aria-selected="${k === trendKey}">${l}</button>`).join('') + `</div>
+        aria-selected="${k === trendKey}">${l}</button>`).join('') + `</div></div>
     ${trendWho === 'all' ? colorKey(cmap) : ''}
     <svg class="chart trend" viewBox="-2 -6 ${W + 4} ${Hh + 13}" role="img" aria-label="成長の推移">
       ${grid}${lines}${dots}${labs}</svg>
@@ -860,6 +862,8 @@ function renderPerson() {
   return h;
 }
 
+let scrollTop = false;
+
 function render() {
   document.getElementById('vtitle').textContent = VIEW_NAME[view] || '';
   document.querySelectorAll('.mitem').forEach(b =>
@@ -873,7 +877,8 @@ function render() {
   document.getElementById('view').innerHTML =
     view === 'store' ? renderStore() : view === 'rank' ? renderRank()
     : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal() : renderPerson();
-  window.scrollTo({top: 0, behavior: 'instant'});
+  if (scrollTop) { window.scrollTo({top: 0, behavior: 'instant'}); }
+  scrollTop = false;
 }
 
 document.getElementById('view').addEventListener('click', ev => {
@@ -952,7 +957,7 @@ document.addEventListener('touchend', e => {
 menuBg.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
 document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () => {
-  view = b.dataset.v; setMenu(false); render();
+  view = b.dataset.v; setMenu(false); scrollTop = true; render();
 }));
 selM.addEventListener('change', e => { month = e.target.value; render(); });
 selS.addEventListener('change', e => { person = e.target.value; render(); });
