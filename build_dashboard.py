@@ -98,7 +98,7 @@ def main():
             '<button class="mitem" data-v="rebook"><b>次回予約</b>'
             '<span>取得率ランキングと、その後の来店</span></button>',
             '<button class="mitem" data-v="trend"><b>売上シミュレーション</b>'
-            '<span>期間と項目を選んで、伸びかたを見る</span></button>',
+            '<span>この先の売上予測・答え合わせ・これまでの推移</span></button>',
             *(['<button class="mitem" data-v="chat"><b>AIに聞く</b>'
                '<span>今の数字について、ことばで質問できます</span></button>'] if CHAT_ON else []),
             '<button class="mitem" data-v="deep"><b>詳しく見る</b>'

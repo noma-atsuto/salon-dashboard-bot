@@ -507,9 +507,17 @@ function trendChart() {
 
 function renderTrend() {
   let h = partial();
-  h += `<section><h2 class="c-teal">売上シミュレーション</h2>
-    <p class="lede">これまでの実績の動きです。見たい相手・期間・項目を選べます。
-    この先の見通し（上昇・順当・悲観的）は「目標」の中にあります。</p>
+  h += `<section><h2 class="c-teal">この先の売上予測</h2>
+    <p class="lede">当月から先を、<b>上昇・順当・悲観的</b>の3つの見通しで見積もっています。
+    折れ線をタップすると、その月の数字が出ます。</p>
+    <div class="panel">${forecastChart()}</div></section>`;
+
+  h += `<section><h2 class="c-orange">予測の答え合わせ</h2>
+    <p class="lede">この予測がどれくらい当たっているかを、過ぎた月で検証しています。</p>
+    ${backtestBlock()}</section>`;
+
+  h += `<section><h2 class="c-blue">これまでの推移</h2>
+    <p class="lede">予測のもとになっている実績です。見たい相手・期間・項目を選べます。</p>
     <div class="panel">${trendChart()}</div></section>`;
   return h;
 }
@@ -793,14 +801,6 @@ function renderGoal() {
       }).join('') + `</div>
       <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。</p>`;
   }
-
-  h += `<section><h2 class="c-teal">この先の売上予測</h2>
-    <p class="lede">3つの見通しで、先の売上を見積もっています。</p>
-    <div class="panel">${forecastChart()}</div></section>`;
-
-  h += `<section><h2 class="c-orange">予測の答え合わせ</h2>
-    <p class="lede">この予測が実際どれくらい当たっているかを、過ぎた月で検証しています。</p>
-    ${backtestBlock()}</section>`;
 
   h += subBlock('goal', [
     ['how', howHtml, '目標の決め方', 'blue'],
