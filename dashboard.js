@@ -1694,19 +1694,37 @@ function setMenu(open) {
 const menuOpen = () => document.body.classList.contains('drawer');
 menuBtn.addEventListener('click', () => setMenu(!menuOpen()));
 
-// 画面の左端から右へなぞるとメニューが開く。開いているときは左へなぞると閉じる。
-let swX = null, swY = null;
+// 画面のどこからでも、右へなぞるとメニューが開く。開いているときは左へなぞると閉じる。
+// ただし、表やタブのように「横に動かせる場所」から始まったなぞりは、
+// そちらの操作を優先して無視する。
+function inSideScroller(el) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    if (n.nodeType !== 1) continue;
+    if (n.scrollWidth - n.clientWidth > 4) {
+      const ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+    const tag = n.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  }
+  return false;
+}
+
+let swX = null, swY = null, swSkip = false;
 document.addEventListener('touchstart', e => {
+  if (e.touches.length > 1) { swX = null; return; }   // つまむ操作は対象外
   const t = e.touches[0];
   swX = t.clientX; swY = t.clientY;
+  swSkip = inSideScroller(e.target);
 }, {passive: true});
 document.addEventListener('touchend', e => {
   if (swX === null) return;
   const t = e.changedTouches[0];
-  const dx = t.clientX - swX, dy = t.clientY - swY, startX = swX;
-  swX = null;
+  const dx = t.clientX - swX, dy = t.clientY - swY, skip = swSkip;
+  swX = null; swSkip = false;
+  if (skip) return;
   if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
-  if (dx > 0 && startX < 70 && !menuOpen()) setMenu(true);
+  if (dx > 0 && !menuOpen()) setMenu(true);
   else if (dx < 0 && menuOpen()) setMenu(false);
 }, {passive: true});
 menuBg.addEventListener('click', () => setMenu(false));
