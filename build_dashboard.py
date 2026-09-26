@@ -75,8 +75,7 @@ def main():
     html = [HTML_HEAD,
             '<nav id="menu" aria-label="表示の切り替え">',
             '<p class="mhead">メニュー</p>',
-            '<button class="mitem" data-v="store">'
-            '<b>店舗全体<span class="homemark">ホーム画面</span></b>'
+            '<button class="mitem" data-v="store"><b>店舗全体</b>'
             '<span>売上・客数・目標の進み・予約経路・フィードバック</span></button>',
             '<button class="mitem" data-v="rank"><b>スタイリスト比較</b>'
             '<span>全員の数字を一覧で並べて比べる</span></button>',
