@@ -620,6 +620,82 @@ function renderRank() {
   return h;
 }
 
+/* ---- 売上の予測 ---- */
+const FC_RANGES = [[3, '3ヶ月'], [6, '半年'], [9, '9ヶ月'], [12, '1年']];
+const FC_SCEN = [['high', '上昇', 'green'], ['mid', '順当', 'blue'], ['low', '悲観的', 'red']];
+let fcRange = 6, fcKey = 'gross', fcWho = 'store', fcSel = null;
+
+function forecastChart() {
+  const F = P.forecast;
+  if (!F) return '<p class="mini">予測を出せるデータがありません。</p>';
+  const ms = F.months.slice(0, fcRange);
+  const names = Object.keys(F.scenarios.mid[ms[0]].stylists);
+  if (fcWho !== 'store' && !names.includes(fcWho)) fcWho = 'store';
+  const nr = fcKey === 'net' ? (F.net_ratio[fcWho] ?? 1) : 1;
+  const pick = (sc, m) => {
+    const e = F.scenarios[sc][m];
+    return (fcWho === 'store' ? e.store : (e.stylists[fcWho] || 0)) * nr;
+  };
+  const all = FC_SCEN.flatMap(([k]) => ms.map(m => pick(k, m)));
+  const max = Math.max(...all, 1);
+  const W = 100, H = 40, n = ms.length;
+  const xf = i => (n === 1 ? W / 2 : i * (W / (n - 1)));
+  const yf = v => H - v / max * H;
+  let sel = fcSel; if (sel === null || sel >= n) sel = 0;
+
+  let g = '', lines = '', dots = '', labs = '';
+  for (let k = 0; k <= 3; k++) {
+    const y = H * k / 3;
+    g += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line2)" stroke-width=".2"></line>`;
+  }
+  g += `<line x1="${xf(sel)}" y1="-3" x2="${xf(sel)}" y2="${H}" stroke="var(--accent)"
+    stroke-width=".35" stroke-dasharray="1.5 1.2"></line>`;
+  FC_SCEN.forEach(([k, , col]) => {
+    const pts = ms.map((m, i) => `${xf(i).toFixed(2)},${yf(pick(k, m)).toFixed(2)}`);
+    lines += `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--${col})"
+      stroke-width="${k === 'mid' ? 1.2 : .8}" stroke-linejoin="round"
+      ${k === 'mid' ? '' : 'stroke-dasharray="2.4 1.6"'}></polyline>`;
+    ms.forEach((m, i) => {
+      dots += `<circle cx="${xf(i).toFixed(2)}" cy="${yf(pick(k, m)).toFixed(2)}"
+        r="${i === sel ? 1.5 : .7}" fill="var(--${col})" stroke="var(--surface)" stroke-width=".3"></circle>`;
+    });
+  });
+  ms.forEach((m, i) => {
+    const show = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
+    if (show) labs += `<text x="${xf(i).toFixed(2)}" y="${H + 5}" text-anchor="middle" font-size="3"
+      fill="var(--${i === sel ? 'ink2' : 'ink3'})" font-weight="${i === sel ? 700 : 400}">${Number(m.slice(5))}月</text>`;
+    lines += `<rect class="fbar" data-i="${i}" x="${(xf(i) - W / n / 2).toFixed(2)}" y="-4"
+      width="${(W / n).toFixed(2)}" height="${H + 5}" fill="transparent"></rect>`;
+  });
+
+  const cmap = stylistColors();
+  const label = fcWho === 'store' ? '店舗全体' : fcWho;
+  return `<div class="row2"><span class="rowlab">誰を</span><div class="switch wrap">
+      <button type="button" class="fwho" data-w="store" aria-selected="${fcWho === 'store'}">店舗全体</button>` +
+      names.map(nm => `<button type="button" class="fwho" data-w="${esc(nm)}" aria-selected="${nm === fcWho}">
+        <i class="dot" style="background:var(--${cmap[nm] || 'accent'})"></i>${esc(nm)}</button>`).join('') +
+    `</div></div>
+    <div class="row2"><span class="rowlab">期間</span><div class="switch wrap">` +
+      FC_RANGES.map(([r, l]) => `<button type="button" class="frange" data-r="${r}"
+        aria-selected="${r === fcRange}">${l}</button>`).join('') + `</div></div>
+    <div class="row2"><span class="rowlab">見る数字</span><div class="switch wrap">
+      <button type="button" class="fmetric" data-k="gross" aria-selected="${fcKey === 'gross'}">総売上</button>
+      <button type="button" class="fmetric" data-k="net" aria-selected="${fcKey === 'net'}">純売上</button>
+    </div></div>
+    <div class="ckey">` + FC_SCEN.map(([, l, c]) =>
+      `<span><i style="background:var(--${c})"></i>${l}</span>`).join('') + `</div>
+    <svg class="chart trend" viewBox="-2 -6 ${W + 4} ${H + 13}" role="img" aria-label="売上の予測">
+      ${g}${lines}${dots}${labs}</svg>
+    <div class="dayinfo"><div class="dhead">${ms[sel].slice(0, 4)}年${Number(ms[sel].slice(5))}月の予測
+      <span class="wd" style="font-size:12px">${esc(label)}・${fcKey === 'net' ? '純売上' : '総売上'}</span></div>
+      <div class="legend">` +
+      FC_SCEN.map(([k, l, c]) => `<div><i style="background:var(--${c})"></i>
+        <span>${l}</span><b>${yen(pick(k, ms[sel]))}円</b></div>`).join('') +
+      `</div></div>
+    <p class="mini" style="margin-top:8px">グラフのあたりをタップすると、その月の予測が出ます。
+    ${F.based_on.map(m => Number(m.slice(5)) + '月').join('・')}の実績をもとに、季節と出勤日数を反映しています。</p>`;
+}
+
 function renderGoal() {
   const d = cur(), s = d.store, t = d.target;
   let h = partial();
@@ -680,37 +756,42 @@ function renderGoal() {
         <span class="num">${pct(r)}　${yen(ss.gross)}／${yen(tt.store)}円</span></div>`;
     }).join('') + `</div></section>`;
 
-  const st = t.season_table || {};
-  const sy = t.season_years || {};
-  h += `<section><h2 class="c-ink">目標の決め方</h2><div class="panel">
+  const howHtml = `<div class="panel">
     <p style="margin:0 0 10px">${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}の
     <b>「1日あたり総売上」の平均</b>を基準にしています。
     そこに <b>${((t.growth - 1) * 100).toFixed(0)}%</b> を上乗せし、その月の出勤日数をかけたものが目標です。</p>
     <div class="note">1人の目標 ＝ 直近の1日あたり総売上の平均${t.growth !== 1 ? ' × ' + t.growth : ''} × その月の出勤日数<br>
       店舗の目標 ＝ 全員の合計に、フリー枠など一覧に出ていない分を過去の比率で足したもの<br>
       店舗の目標は <b>${yen(t.floor)}円</b> をボーダーとし、下回る月は全員の目標を同じ割合で引き上げます
-      ${t.floored ? '（<b>今月は下限を適用しています</b>）' : ''}</div>
+      ${t.floored ? '（<b>今月はボーダーを適用しています</b>）' : ''}</div>
     <p class="mini" style="margin-top:10px">季節（繁忙期・閑散期）は目標には掛けていません。
-    実績そのものから決めています。季節は下の表で<b>参考</b>としてご覧ください。</p>
-    </div></section>`;
+    実績そのものから決めています。</p></div>`;
 
+  const st = t.season_table || {}, sy = t.season_years || {};
+  let seasonHtml = '';
   if (Object.keys(st).length) {
     const mx = Math.max(...Object.values(st));
-    h += `<section><h2 class="c-yellow">月ごとの忙しさ（参考）</h2>
-      <p class="lede">目標には使っていません。年間の傾向を見るための目安です。<br>
+    seasonHtml = `<p class="lede" style="padding-left:0">目標には使っていません。年間の傾向を見るための目安です。
       スタッフの人数の増減が混ざらないよう<b>1名あたりの客数</b>に直し、成長分を取り除いて計算しました。1.00が平年並みです。</p>
       <div class="panel routes">` +
       Object.keys(st).map(Number).sort((a, b) => a - b).map(m => {
-        const v = st[String(m)];
-        const tag = v >= 1.08 ? '繁忙' : v <= 0.93 ? '閑散' : '';
+        const v = st[String(m)], tag = v >= 1.08 ? '繁忙' : v <= 0.93 ? '閑散' : '';
         return `<div class="r"><b>${m}月${m === Number(month.slice(5)) ? '（今月）' : ''}</b>
           <div class="bar"><i style="width:${(v / mx * 100).toFixed(1)}%;
-            background:var(--${v >= 1.08 ? 'warn' : v <= 0.93 ? 'accent' : 'line'})"></i></div>
+            background:var(--${v >= 1.08 ? 'orange' : v <= 0.93 ? 'blue' : 'line'})"></i></div>
           <span class="num">${v.toFixed(2)}　${tag}　${sy[String(m)] || 0}年分</span></div>`;
       }).join('') + `</div>
-      <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。月が進むほど精度が上がります。</p>
-      </section>`;
+      <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。</p>`;
   }
+
+  h += `<section><h2 class="c-teal">この先の売上予測</h2>
+    <p class="lede">3つの見通しで、先の売上を見積もっています。</p>
+    <div class="panel">${forecastChart()}</div></section>`;
+
+  h += subBlock('goal', [
+    ['how', howHtml, '目標の決め方', 'blue'],
+    ['season', seasonHtml, '月ごとの忙しさ', 'yellow'],
+  ]);
   return h;
 }
 
@@ -884,6 +965,14 @@ function render() {
 document.getElementById('view').addEventListener('click', ev => {
   const st = ev.target.closest('.stab');
   if (st) { subTab[st.dataset.s] = st.dataset.k; render(); return; }
+  const fw = ev.target.closest('.fwho');
+  if (fw) { fcWho = fw.dataset.w; render(); return; }
+  const fr = ev.target.closest('.frange');
+  if (fr) { fcRange = Number(fr.dataset.r); fcSel = null; render(); return; }
+  const fm = ev.target.closest('.fmetric');
+  if (fm) { fcKey = fm.dataset.k; render(); return; }
+  const fb = ev.target.closest('.fbar');
+  if (fb) { fcSel = Number(fb.dataset.i); render(); return; }
   const tr = ev.target.closest('.trange');
   if (tr) { trendRange = Number(tr.dataset.r); trendSel = null; render(); return; }
   const tm = ev.target.closest('.tmetric');

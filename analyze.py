@@ -504,6 +504,97 @@ def build_targets(out, sh, months):
         }
 
 
+FORECAST_MONTHS = 12      # 何ヶ月先まで予測するか
+
+
+def build_forecast(out, sh, months):
+    """当月から先の売上を、3つの見通しで予測する。
+
+      順当   … 直近の平均どおりのペースが続いた場合
+      上昇   … 直近でいちばん良かった月のペースが続いた場合
+      悲観的 … 直近でいちばん低かった月のペースが続いた場合
+
+    いずれも季節（繁忙期・閑散期）と、その月の出勤日数を反映する。
+    """
+    season, _ = seasonal_index()
+    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
+    base_months = [m for m in months if not out[m]["partial"] and (not SINCE or m >= SINCE)]
+    if not base_months:
+        return None
+    last = months[-1]
+    y, mo = int(last[:4]), int(last[5:7])
+
+    people = {}
+    for name in out[last]["stylists"]:
+        vals, days, ratios = [], [], []
+        for m in base_months:
+            p = out[m]["stylists"].get(name)
+            if not p or not p.get("gross_per_day"):
+                continue
+            vals.append(p["gross_per_day"] / sfac(m))      # 季節を取り除いた水準
+            days.append(p["workdays"])
+            if p["gross"]:
+                ratios.append(p["net"] / p["gross"])
+        if not vals:
+            continue
+        people[name] = {
+            "mid": sum(vals) / len(vals), "high": max(vals), "low": min(vals),
+            "days": round(sum(days) / len(days)) if days else 0,
+            "net_ratio": (sum(ratios) / len(ratios)) if ratios else 1.0,
+        }
+    if not people:
+        return None
+
+    # 店舗全体は、一覧に出ていないスタッフの分を過去の比率で足す
+    share = []
+    for m in base_months:
+        tot = out[m]["store"]["gross"]
+        sub = sum(v["gross"] for v in out[m]["stylists"].values())
+        if sub:
+            share.append(tot / sub)
+    ratio = sum(share) / len(share) if share else 1.0
+    store_net_ratio = []
+    for m in base_months:
+        g = out[m]["store"]["gross"]
+        if g:
+            store_net_ratio.append(out[m]["store"]["net"] / g)
+    snr = sum(store_net_ratio) / len(store_net_ratio) if store_net_ratio else 1.0
+
+    ym_list = []
+    yy, mm = y, mo
+    for _ in range(FORECAST_MONTHS):
+        ym_list.append(f"{yy}-{mm:02d}")
+        mm += 1
+        if mm == 13:
+            yy, mm = yy + 1, 1
+
+    def series(level_key, days_of):
+        out_s = {}
+        for m in ym_list:
+            f = sfac(m)
+            total = 0.0
+            per = {}
+            for name, v in people.items():
+                d = days_of(name, m)
+                g = v[level_key] * f * d
+                per[name] = g
+                total += g
+            out_s[m] = {"store": total * ratio, "stylists": per}
+        return out_s
+
+    def days_of(name, m):
+        w = shift_days_planned(sh, m, name)
+        return w if w else people[name]["days"]
+
+    return {
+        "months": ym_list,
+        "scenarios": {k: series(k, days_of) for k in ("high", "mid", "low")},
+        "net_ratio": {"store": snr, **{n: v["net_ratio"] for n, v in people.items()}},
+        "days": {m: {n: days_of(n, m) for n in people} for m in ym_list},
+        "based_on": base_months,
+    }
+
+
 def _with_rate(f, first_visits):
     """取得率＝初回来店のお客様のうち、次回予約を取れた割合"""
     if f is None:

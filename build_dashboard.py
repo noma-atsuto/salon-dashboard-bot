@@ -56,7 +56,10 @@ def build_payload():
                          "gross": data[m]["store"]["gross"],
                          "workdays": data[m]["store"]["workdays"]},
                "stylists": data[m]["stylists"]} for m in months}
+    for m in months:
+        tmp[m]["store"]["gross"] = data[m]["store"]["gross"]
     analyze.build_targets(tmp, shift, months)
+    payload["forecast"] = analyze.build_forecast(tmp, shift, months)
     for m in months:
         payload["data"][m]["target"] = tmp[m].get("target")
     payload["growth"] = analyze.GROWTH
