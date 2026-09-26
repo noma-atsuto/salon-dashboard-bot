@@ -83,6 +83,7 @@ def main():
             '</div>',
             '<div class="ctrl"><select id="m" aria-label="対象月"></select>',
             '<span id="ls" hidden></span><select id="s" aria-label="スタイリスト" hidden></select></div>',
+            '<div id="sectab" class="sectab" role="tablist" aria-label="ページ内の項目"></div>',
             '</div>',
             '<nav id="menu" hidden aria-label="表示の切り替え">',
             '<button class="mitem" data-v="store"><b>店舗全体</b>'

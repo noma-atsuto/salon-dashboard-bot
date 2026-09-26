@@ -945,6 +945,73 @@ function renderPerson() {
 
 let scrollTop = false;
 
+/* ---- ページ内の項目を上部に並べ、タップで移動する ---- */
+const secBar = document.getElementById('sectab');
+
+function headerH() {
+  return document.querySelector('.top').getBoundingClientRect().height;
+}
+
+function buildSecTabs() {
+  const view = document.getElementById('view');
+  const parts = [];
+  const hero = view.querySelector('.hero');
+  if (hero) {
+    hero.id = 'sec-top';
+    parts.push(['sec-top', '概要']);
+  }
+  view.querySelectorAll('section').forEach((sec, i) => {
+    const h = sec.querySelector('h2');
+    if (!h) return;
+    const id = 'sec-' + i;
+    sec.id = id;
+    parts.push([id, h.textContent.trim()]);
+  });
+  if (parts.length < 2) { secBar.innerHTML = ''; secBar.hidden = true; return; }
+  secBar.hidden = false;
+  secBar.innerHTML = parts.map(([id, label], i) =>
+    `<button type="button" class="sectab-b" data-id="${id}"
+      aria-selected="${i === 0}">${esc(label)}</button>`).join('');
+  markSec();
+}
+
+function markSec() {
+  const btns = [...secBar.querySelectorAll('.sectab-b')];
+  if (!btns.length) return;
+  const line = headerH() + 24;
+  let cur = btns[0];
+  btns.forEach(b => {
+    const el = document.getElementById(b.dataset.id);
+    if (el && el.getBoundingClientRect().top <= line) cur = b;
+  });
+  btns.forEach(b => b.setAttribute('aria-selected', String(b === cur)));
+  const on = secBar.querySelector('.sectab-b[aria-selected="true"]');
+  if (on) {
+    const l = on.offsetLeft - secBar.clientWidth / 2 + on.clientWidth / 2;
+    secBar.scrollTo({left: Math.max(0, l), behavior: 'smooth'});
+  }
+}
+
+secBar.addEventListener('click', ev => {
+  const b = ev.target.closest('.sectab-b');
+  if (!b) return;
+  const el = document.getElementById(b.dataset.id);
+  if (!el) return;
+  const y = window.scrollY + el.getBoundingClientRect().top - headerH() - 10;
+  window.scrollTo({top: Math.max(0, y), behavior: 'smooth'});
+});
+
+let spy = null;
+window.addEventListener('scroll', () => {
+  if (spy) return;
+  spy = setTimeout(() => { spy = null; markSec(); }, 120);
+}, {passive: true});
+
+function setTopVar() {
+  document.documentElement.style.setProperty('--topH', headerH() + 'px');
+}
+window.addEventListener('resize', () => { setTopVar(); markSec(); });
+
 function render() {
   document.getElementById('vtitle').textContent = VIEW_NAME[view] || '';
   document.querySelectorAll('.mitem').forEach(b =>
@@ -960,6 +1027,8 @@ function render() {
     : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal() : renderPerson();
   if (scrollTop) { window.scrollTo({top: 0, behavior: 'instant'}); }
   scrollTop = false;
+  buildSecTabs();
+  setTopVar();
 }
 
 document.getElementById('view').addEventListener('click', ev => {
