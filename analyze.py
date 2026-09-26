@@ -32,6 +32,34 @@ def load():
     return df
 
 
+def load_history():
+    """折れ線グラフ用の長期データ。店舗全体とスタイリスト別の月次。"""
+    out = {"months": [], "store": {}, "stylists": {}}
+    mp = os.path.join(CACHE, "monthly.csv")
+    sp = os.path.join(CACHE, "stylist_monthly.csv")
+    if os.path.exists(mp):
+        m = pd.read_csv(mp)
+        m["ym"] = m["年月"].astype(str).str.replace("年", "-", regex=False).str.replace("月", "", regex=False)
+        for c in ("総売上", "純売上", "総客数", "客単価"):
+            m[c] = pd.to_numeric(m.get(c), errors="coerce").fillna(0)
+        m = m[m["総売上"] > 0].sort_values("ym")
+        out["months"] = list(m["ym"])
+        out["store"] = {r["ym"]: {"gross": float(r["総売上"]), "net": float(r["純売上"]),
+                                  "customers": int(r["総客数"]), "avg": float(r["客単価"])}
+                        for _, r in m.iterrows()}
+    if os.path.exists(sp):
+        d = pd.read_csv(sp)
+        for name, g in d.groupby("スタッフ"):
+            name = str(name).strip()
+            if name in EXCLUDE or "削除済" in name:
+                continue
+            out["stylists"][name] = {
+                str(r["年月"]): {"gross": float(r["総売上"]), "net": float(r["純売上"]),
+                                 "customers": int(r["客数"]), "avg": float(r["客単価"])}
+                for _, r in g.iterrows()}
+    return out
+
+
 def load_shift():
     """シフト（出勤／休日）。記録がある月だけ入っている"""
     frames = []

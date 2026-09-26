@@ -48,7 +48,7 @@ EXCLUDE = {"AI TOKYO STYLE", "AI TOKYO 運営チーム", "フリー"}
 def fetch_headcount(client, monthly):
     """月ごとの稼働人数（その月に20人以上担当したスタッフの数）"""
     path = os.path.join(CACHE, "headcount.csv")
-    rows = []
+    rows, per = [], []
     for ym in monthly["年月"]:
         m = str(ym)
         y, mo = int(m[:4]), int(m[5:7])
@@ -67,12 +67,35 @@ def fetch_headcount(client, monthly):
         rows.append({"年月": f"{y}-{mo:02d}", "年": y, "月": mo,
                      "稼働": int((df["総客数"] >= 20).sum()),
                      "客数": int(df["総客数"].sum())})
+        # スタイリストごとの月次（折れ線グラフ用）
+        for _, r in df.iterrows():
+            if float(r.get("総客数") or 0) < 20:
+                continue
+            per.append({"年月": f"{y}-{mo:02d}",
+                        "スタッフ": str(r["スタッフ"]).strip(),
+                        "総売上": _num(r.get("総売上")), "純売上": _num(r.get("純売上")),
+                        "客数": int(_num(r.get("総客数"))), "客単価": _num(r.get("客単価"))})
     if rows:
         out = pd.DataFrame(rows)
         tmp = path + ".tmp"
         out.to_csv(tmp, index=False, encoding="utf-8")
         os.replace(tmp, path)
         print(f"稼働人数 {len(out)}ヶ月分を保存しました", flush=True)
+    if per:
+        p2 = os.path.join(CACHE, "stylist_monthly.csv")
+        out2 = pd.DataFrame(per)
+        tmp2 = p2 + ".tmp"
+        out2.to_csv(tmp2, index=False, encoding="utf-8")
+        os.replace(tmp2, p2)
+        print(f"スタイリスト別の月次 {len(out2)}行を保存しました", flush=True)
+
+
+def _num(v):
+    try:
+        f = float(v)
+        return 0.0 if f != f else f
+    except (TypeError, ValueError):
+        return 0.0
 
 
 if __name__ == "__main__":

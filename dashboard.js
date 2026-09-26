@@ -270,7 +270,7 @@ function renderStore() {
   </div>`;
 
   const r = s.return;
-  h += `<section><h2>目標に対して、いま どこにいるか</h2>
+  h += `<section><h2 class="c-blue">目標に対して、いま どこにいるか</h2>
     <p class="lede">今回の施策で動かしたい4つの数字です。</p><div class="panel goal">
     ${goal('次回予約率', s.rebook_rate, T.rebook_rate, pct)}
     ${r ? goal(`リターン率（新規${r.judged}人中 ${r.returned}人が${r.days}日以内に再来）`, r.rate, T.return_rate, pct)
@@ -280,7 +280,7 @@ function renderStore() {
     ${goal('店販（お客様1人あたり・全員平均）', s.goods_per, T.goods_per, v => yen(v) + '円')}
     </div></section>`;
 
-  h += `<section><h2>店販</h2>
+  h += `<section><h2 class="c-green">店販</h2>
     <p class="lede">お会計 ${yen(s.customers)}件のうち、${s.goods_buyers}件で店販が売れました。</p>
     <div class="strip" style="margin-top:0">
       <div><div class="k">店販売上</div><div class="v">${yen(s.goods)}</div><div class="d">${delta(s.goods, pv?.goods) || '円'}</div></div>
@@ -297,11 +297,11 @@ function renderStore() {
   }
   h += `</section>`;
 
-  h += `<section><h2>日ごとの売上</h2>
+  h += `<section><h2 class="c-teal">日ごとの売上</h2>
     <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
     <div class="panel">${dailyBlock(s.daily, 'ds')}</div></section>`;
 
-  h += `<section><h2>売上の内訳</h2>
+  h += `<section><h2 class="c-orange">売上の内訳</h2>
     <p class="lede">足し引きすると純売上になります。「細かく」を押すと、中身まで見られます。</p>
     <div class="switch">
       <button type="button" class="dtab" data-t="bs" data-v="chart" aria-selected="true">ざっくり</button>
@@ -313,35 +313,140 @@ function renderStore() {
 
   const rs = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
   const tot = rs.reduce((a, b) => a + b[1], 0) || 1;
-  h += `<section><h2>ご予約はどこから入っているか</h2>
-    <p class="lede">有効なご予約 ${yen(tot)}件の内訳です。</p><div class="panel routes">` +
-    rs.map(([k, v]) => `<div class="r"><b>${esc(k)}</b>
-      <div class="bar"><i style="width:${(v / tot * 100).toFixed(1)}%;background:var(--${k === '次回予約' ? 'good' : 'accent'})"></i></div>
-      <span class="num">${v}件 ${(v / tot * 100).toFixed(1)}%</span></div>`).join('') + `</div></section>`;
+  const routeHtml = `<div class="panel routes">` +
+    rs.map(([k, v], i2) => `<div class="r"><b>${esc(k)}</b>
+      <div class="bar"><i style="width:${(v / tot * 100).toFixed(1)}%;background:var(--${
+        k === '次回予約' ? 'green' : k === 'アプリ' ? 'blue' : k === 'ホットペッパービューティー' ? 'orange' : 'purple'})"></i></div>
+      <span class="num">${v}件 ${(v / tot * 100).toFixed(1)}%</span></div>`).join('') + `</div>`;
 
   const f = d.store_feedback;
-  h += `<section><h2>この月のフィードバック</h2><p class="lede">目標との差から自動で書き出しています。</p><div class="panel">`;
+  h += `<section><h2 class="c-purple">この月のフィードバック</h2>
+    <p class="lede">目標との差から自動で書き出しています。</p><div class="panel">`;
   if (f.good.length) h += `<h3>できていること</h3>` + notes(f.good, 'g');
   if (f.issues.length) h += `<h3>伸びしろ</h3>` + notes(f.issues, 'r');
   if (f.actions.length) h += `<h3>次の一手</h3>` + notes(f.actions, 'y');
   h += `</div></section>`;
 
-  if (d.top_menus?.length) {
-    h += `<section><h2>よく出たメニュー</h2><div class="tbl"><table><thead><tr>
+  const menuHtml = d.top_menus?.length ? `<div class="tbl"><table><thead><tr>
       <th>メニュー</th><th>件数</th><th>売上</th></tr></thead><tbody>` +
-      d.top_menus.map(([k, c0, v]) =>
-        `<tr><td>${esc(k)}</td><td>${c0}</td><td>${yen(v)}円</td></tr>`).join('') +
-      `</tbody></table></div></section>`;
-  }
+      d.top_menus.map(([k, c0, v]) => `<tr><td>${esc(k)}</td><td>${c0}</td><td>${yen(v)}円</td></tr>`).join('') +
+      `</tbody></table></div>` : '';
   const ps = Object.entries(s.payments || {}).sort((a, b) => b[1] - a[1]);
   const pt = ps.reduce((a, b) => a + b[1], 0) || 1;
-  if (ps.length) {
-    h += `<section><h2>支払い方法</h2><p class="lede">お会計 ${yen(pt)}件の内訳です。</p><div class="panel routes">` +
-      ps.map(([k, v]) => `<div class="r"><b>${esc(k)}</b>
-        <div class="bar"><i style="width:${(v / pt * 100).toFixed(1)}%"></i></div>
-        <span class="num">${v}件 ${(v / pt * 100).toFixed(1)}%</span></div>`).join('') + `</div></section>`;
-  }
+  const payHtml = ps.length ? `<div class="panel routes">` +
+      ps.map(([k, v], i2) => `<div class="r"><b>${esc(k)}</b>
+        <div class="bar"><i style="width:${(v / pt * 100).toFixed(1)}%;
+          background:var(--${SERIES_COLORS[i2 % SERIES_COLORS.length]})"></i></div>
+        <span class="num">${v}件 ${(v / pt * 100).toFixed(1)}%</span></div>`).join('') + `</div>` : '';
+  const goodsHtml = d.top_goods?.length ? `<div class="tbl"><table><thead><tr>
+      <th>商品</th><th>点数</th><th>売上</th></tr></thead><tbody>` +
+      d.top_goods.map(([k, c0, v]) => `<tr><td>${esc(k)}</td><td>${c0}</td><td>${yen(v)}円</td></tr>`).join('') +
+      `</tbody></table></div>` : '';
+
+  h += subBlock('store', [
+    ['route', routeHtml, '予約経路', 'blue'],
+    ['menu', menuHtml, 'よく出たメニュー', 'orange'],
+    ['goods', goodsHtml, '売れた商品', 'green'],
+    ['pay', payHtml, '支払い方法', 'purple'],
+  ]);
   return h;
+}
+
+/* ---- 小タブ（優先度の低い項目をまとめる） ---- */
+let subTab = {};
+function subBlock(id, items) {
+  const use = items.filter(i => i && i[1]);
+  if (!use.length) return '';
+  if (!subTab[id] || !use.some(i => i[0] === subTab[id])) subTab[id] = use[0][0];
+  const cur = subTab[id];
+  return `<section><h2 class="c-ink">くわしく見る</h2>
+    <p class="lede">ふだんは見なくてよい項目をまとめています。</p>
+    <div class="switch wrap">` +
+    use.map(([k, , label, col]) => `<button type="button" class="stab" data-s="${id}" data-k="${k}"
+      aria-selected="${k === cur}"><i class="dot" style="background:var(--${col || 'accent'})"></i>${label}</button>`).join('') +
+    `</div>` + (use.find(i => i[0] === cur)[1]) + `</section>`;
+}
+
+/* ---- 成長の折れ線グラフ（スタイリスト比較） ---- */
+const SERIES_COLORS = ['blue', 'orange', 'green', 'purple', 'red', 'yellow', 'teal', 'pink'];
+const TREND_RANGES = [[3, '3ヶ月'], [6, '半年'], [9, '9ヶ月'], [12, '1年'], [0, '全期間']];
+const TREND_METRICS = [['gross', '総売上', v => yen(v) + '円'],
+                       ['customers', '客数', v => v + '人'],
+                       ['avg', '客単価', v => yen(v) + '円']];
+let trendRange = 6, trendKey = 'gross', trendStore = true, trendSel = null;
+
+function trendChart() {
+  const H = P.history;
+  if (!H || !H.months || H.months.length < 2) return '<p class="mini">推移を出せるデータがありません。</p>';
+  const all = H.months;
+  const ms = trendRange ? all.slice(-trendRange) : all;
+  const spec = TREND_METRICS.find(t => t[0] === trendKey) || TREND_METRICS[0];
+  const names = Object.keys(H.stylists).filter(n =>
+    ms.some(m => H.stylists[n][m] && H.stylists[n][m].gross > 0));
+  const series = [];
+  if (trendStore) series.push({name: '店舗全体', color: 'ink', store: true,
+                               vals: ms.map(m => (H.store[m] ? H.store[m][trendKey] : null))});
+  names.forEach((n, i) => series.push({name: n, color: SERIES_COLORS[i % SERIES_COLORS.length],
+    vals: ms.map(m => (H.stylists[n][m] ? H.stylists[n][m][trendKey] : null))}));
+  const flat = series.flatMap(s => s.vals).filter(v => v !== null && v > 0);
+  if (!flat.length) return '<p class="mini">この期間のデータがありません。</p>';
+  const max = Math.max(...flat), min = 0;
+  const W = 100, Hh = 42, padL = 0, n = ms.length;
+  const xf = i => (n === 1 ? W / 2 : i * (W / (n - 1)));
+  const yf = v => Hh - (v - min) / (max - min || 1) * Hh;
+
+  let grid = '', lines = '', dots = '', labs = '';
+  for (let g = 0; g <= 3; g++) {
+    const y = Hh * g / 3;
+    grid += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line2)" stroke-width=".2"></line>`;
+  }
+  let sel = trendSel;
+  if (sel === null || sel >= n) sel = n - 1;
+  grid += `<line class="tsel" x1="${xf(sel)}" y1="-3" x2="${xf(sel)}" y2="${Hh}"
+    stroke="var(--accent)" stroke-width=".35" stroke-dasharray="1.5 1.2"></line>`;
+  series.forEach(sr => {
+    const pts = sr.vals.map((v, i) => (v === null || v === 0 ? null : `${xf(i).toFixed(2)},${yf(v).toFixed(2)}`));
+    let run = [];
+    pts.forEach(p2 => { if (p2) run.push(p2); else { if (run.length > 1) lines += seg(run, sr); run = []; } });
+    if (run.length > 1) lines += seg(run, sr);
+    sr.vals.forEach((v, i) => {
+      if (v === null || v === 0) return;
+      dots += `<circle cx="${xf(i).toFixed(2)}" cy="${yf(v).toFixed(2)}" r="${i === sel ? 1.5 : .8}"
+        fill="var(--${sr.color})" stroke="var(--surface)" stroke-width=".3"></circle>`;
+    });
+  });
+  function seg(run, sr) {
+    return `<polyline points="${run.join(' ')}" fill="none" stroke="var(--${sr.color})"
+      stroke-width="${sr.store ? 1.1 : .75}" stroke-linejoin="round" stroke-linecap="round"
+      ${sr.store ? 'stroke-dasharray="2.5 1.5"' : ''}></polyline>`;
+  }
+  ms.forEach((m, i) => {
+    const show = n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1;
+    if (show) labs += `<text x="${xf(i).toFixed(2)}" y="${Hh + 5}" text-anchor="middle"
+      font-size="3" fill="var(--${i === sel ? 'ink2' : 'ink3'})"
+      font-weight="${i === sel ? 700 : 400}">${Number(m.slice(5))}月</text>`;
+    lines += `<rect class="tbar" data-i="${i}" x="${(xf(i) - W / n / 2).toFixed(2)}" y="-4"
+      width="${(W / n).toFixed(2)}" height="${Hh + 5}" fill="transparent"></rect>`;
+  });
+
+  const rows = series.map(sr => ({name: sr.name, color: sr.color, v: sr.vals[sel]}))
+    .filter(r => r.v !== null && r.v > 0).sort((a, b) => b.v - a.v);
+  return `<div class="switch">` +
+      TREND_RANGES.map(([r, l]) => `<button type="button" class="trange" data-r="${r}"
+        aria-selected="${r === trendRange}">${l}</button>`).join('') + `</div>
+    <div class="switch" style="margin-left:6px">` +
+      TREND_METRICS.map(([k, l]) => `<button type="button" class="tmetric" data-k="${k}"
+        aria-selected="${k === trendKey}">${l}</button>`).join('') +
+      `<button type="button" class="tstore" aria-selected="${trendStore}">店舗全体</button></div>
+    <svg class="chart trend" viewBox="-2 -6 ${W + 4} ${Hh + 13}" role="img" aria-label="成長の推移">
+      ${grid}${lines}${dots}${labs}</svg>
+    <div class="dayinfo"><div class="dhead">${ms[sel].slice(0, 4)}年${Number(ms[sel].slice(5))}月の${spec[1]}</div>
+      <div class="legend">` +
+      rows.map(r => `<div><i style="background:var(--${r.color})"></i>
+        <span>${esc(r.name)}</span><b>${spec[2](r.v)}</b></div>`).join('') +
+      `</div></div>
+    <p class="mini" style="margin-top:8px">線や縦軸のあたりをタップすると、その月の数字が出ます。
+    点線は店舗全体です。</p>`;
 }
 
 function renderRank() {
@@ -372,7 +477,10 @@ function renderRank() {
     ['店販/客（全員平均）', x => yen(x.goods_per) + '円', x => x.goods_per >= T.goods_per ? 1 : (x.goods_per < s.goods_per * .6 ? -1 : 0)],
   ];
   let h = partial();
-  h += `<section><h2>スタイリスト比較</h2>
+  h += `<section><h2 class="c-teal">成長の推移</h2>
+    <p class="lede">期間と項目を選べます。全員と店舗全体を重ねて比べられます。</p>
+    <div class="panel">${trendChart()}</div></section>`;
+  h += `<section><h2 class="c-blue">スタイリスト比較</h2>
     <p class="lede">緑は目標達成または店舗平均より良いところ、赤は伸びしろがあるところです。横にスクロールできます。<br>
     「出勤」は${s.workday_source === 'shift'
       ? '<b>予約枠を開けている日</b>を数えています（枠を閉じている日は休み）'
@@ -403,7 +511,7 @@ function renderRank() {
 function renderRebook() {
   const d = cur(), s = d.store, f = s.rebook_made;
   let h = partial();
-  h += `<section><h2>次回予約（店舗全体）</h2>
+  h += `<section><h2 class="c-green">次回予約（店舗全体）</h2>
     <p class="lede">初めてご来店されたお客様から、その場で取れた次回予約を追いかけています。</p>
     ${rebookBlock(s, s)}</section>`;
 
@@ -413,7 +521,7 @@ function renderRebook() {
     .filter(r => r.f && r.f.first_visits)
     .sort((a, b) => (b.f.take_rate ?? -1) - (a.f.take_rate ?? -1));
   const maxR = Math.max(T.rebook_rate, ...rank.map(r => r.f.take_rate || 0), 1);
-  h += `<section><h2>次回予約 取得率ランキング</h2>
+  h += `<section><h2 class="c-purple">次回予約 取得率ランキング</h2>
     <p class="lede">初めてご来店されたお客様のうち、その場で次回予約を取れた割合です。目標は${T.rebook_rate}%。
     ${sr && sr.take_rate !== null ? `店舗全体は ${pct(sr.take_rate)}（初回来店 ${sr.first_visits}人中 ${sr.made}件）。` : ''}</p>
     <div class="panel routes">` +
@@ -490,7 +598,7 @@ function renderGoal() {
       <div class="d">出勤 ${doneDays}／${planDays}日で計算</div></div>` : ''}
   </div>`;
 
-  h += `<section><h2>スタイリストごとの目標</h2>
+  h += `<section><h2 class="c-blue">スタイリストごとの目標</h2>
     <p class="lede">すべて総売上（割引前）です。出勤日数をかけて出しています。横にスクロールできます。</p>
     <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>出勤</th>
     <th>1日あたりの基準</th><th>いちばん良かった月</th><th>目標</th><th>実績</th>
@@ -509,7 +617,7 @@ function renderGoal() {
       <td class="${rate >= 100 ? 'ok' : rate < 80 ? 'bad' : ''}">${pct(rate)}</td>
       <td>${left > 0 ? yen(left) + '円' : '—'}</td></tr></tbody></table></div></section>`;
 
-  h += `<section><h2>達成率の推移</h2><div class="panel routes">` +
+  h += `<section><h2 class="c-green">達成率の推移</h2><div class="panel routes">` +
     P.months.map(m => {
       const tt = P.data[m].target, ss = P.data[m].store;
       if (!tt) return '';
@@ -522,7 +630,7 @@ function renderGoal() {
 
   const st = t.season_table || {};
   const sy = t.season_years || {};
-  h += `<section><h2>目標の決め方</h2><div class="panel">
+  h += `<section><h2 class="c-ink">目標の決め方</h2><div class="panel">
     <p style="margin:0 0 10px">${t.based_on.map(m => Number(m.slice(5)) + '月').join('・')}の
     <b>「1日あたり総売上」の平均</b>を基準にしています。
     そこに <b>${((t.growth - 1) * 100).toFixed(0)}%</b> を上乗せし、その月の出勤日数をかけたものが目標です。</p>
@@ -536,7 +644,7 @@ function renderGoal() {
 
   if (Object.keys(st).length) {
     const mx = Math.max(...Object.values(st));
-    h += `<section><h2>月ごとの忙しさ（参考）</h2>
+    h += `<section><h2 class="c-yellow">月ごとの忙しさ（参考）</h2>
       <p class="lede">目標には使っていません。年間の傾向を見るための目安です。<br>
       スタッフの人数の増減が混ざらないよう<b>1名あたりの客数</b>に直し、成長分を取り除いて計算しました。1.00が平年並みです。</p>
       <div class="panel routes">` +
@@ -633,7 +741,7 @@ function renderPerson() {
     <div class="sub">${delta(x.net, pv?.net) || '&nbsp;'}　担当 ${x.customers}人</div>
     <div style="margin-top:14px">${chart('net', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
-  h += `<section><h2>成長の推移</h2>
+  h += `<section><h2 class="c-teal">成長の推移</h2>
     <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
     <div class="panel">${growthBlock(x.name)}</div></section>`;
   h += `<div class="strip">
@@ -663,11 +771,11 @@ function renderPerson() {
     <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
     ${rebookBlock(x, s)}</section>`;
 
-  h += `<section><h2>日ごとの売上</h2>
+  h += `<section><h2 class="c-teal">日ごとの売上</h2>
     <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
     <div class="panel">${dailyBlock(x.daily, 'dp')}</div></section>`;
 
-  h += `<section><h2>売上の内訳</h2>
+  h += `<section><h2 class="c-orange">売上の内訳</h2>
     <p class="lede">「細かく」を押すと、中身まで見られます。</p>
     <div class="switch">
       <button type="button" class="dtab" data-t="bp" data-v="chart" aria-selected="true">ざっくり</button>
@@ -686,7 +794,7 @@ function renderPerson() {
     ${goal(`トリートメント装着率（店舗 ${pct(s.treat_rate)}）`, x.treat_rate, T.treat_rate, pct)}
     ${goal(`店販（1人あたり・全員平均／店舗 ${yen(s.goods_per)}円）`, x.goods_per, T.goods_per, v => yen(v) + '円')}
     </div></section>`;
-  h += `<section><h2>フィードバック</h2><div class="panel">`;
+  h += `<section><h2 class="c-purple">フィードバック</h2><div class="panel">`;
   if (f.trend?.length) { h += `<h3>前月からの変化</h3>` + notes(f.trend.map(t => t.text), ''); }
   if (f.strengths.length) h += `<h3>強み</h3>` + notes(f.strengths, 'g');
   if (f.issues.length) h += `<h3>伸びしろ</h3>` + notes(f.issues, 'r');
@@ -712,6 +820,15 @@ function render() {
 }
 
 document.getElementById('view').addEventListener('click', ev => {
+  const st = ev.target.closest('.stab');
+  if (st) { subTab[st.dataset.s] = st.dataset.k; render(); return; }
+  const tr = ev.target.closest('.trange');
+  if (tr) { trendRange = Number(tr.dataset.r); trendSel = null; render(); return; }
+  const tm = ev.target.closest('.tmetric');
+  if (tm) { trendKey = tm.dataset.k; render(); return; }
+  if (ev.target.closest('.tstore')) { trendStore = !trendStore; render(); return; }
+  const tb = ev.target.closest('.tbar');
+  if (tb) { trendSel = Number(tb.dataset.i); render(); return; }
   const gt = ev.target.closest('.gtab');
   if (gt) { growthKey = gt.dataset.k; render(); return; }
   const gb = ev.target.closest('.gbar');

@@ -60,6 +60,7 @@ def build_payload():
     for m in months:
         payload["data"][m]["target"] = tmp[m].get("target")
     payload["growth"] = analyze.GROWTH
+    payload["history"] = analyze.load_history()
     return payload
 
 
