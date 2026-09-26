@@ -42,7 +42,7 @@ def main():
     fetch_headcount(client, df)
 
 
-EXCLUDE = {"AI TOKYO STYLE", "AI TOKYO 運営チーム", "フリー"}
+EXCLUDE = {"AI TOKYO STYLE", "AI TOKYO 運営チーム", "フリー", "吉田周人 [池袋]"}
 
 
 def fetch_headcount(client, monthly):

@@ -86,12 +86,12 @@ def main():
             '<span>売上・客数・目標の進み・予約経路・フィードバック</span></button>',
             '<button class="mitem" data-v="rank"><b>スタイリスト比較</b>'
             '<span>全員の数字を一覧で並べて比べる</span></button>',
+            '<button class="mitem" data-v="person"><b>個人カルテ</b>'
+            '<span>1人ぶんの数字・成長の推移・次の一手</span></button>',
             '<button class="mitem" data-v="goal"><b>目標</b>'
             '<span>今月の売上目標と、達成までの残り</span></button>',
             '<button class="mitem" data-v="rebook"><b>次回予約</b>'
             '<span>取得率ランキングと、その後の来店</span></button>',
-            '<button class="mitem" data-v="person"><b>個人カルテ</b>'
-            '<span>1人ぶんの数字・成長の推移・次の一手</span></button>',
             '</nav>',
             '<div id="menubg" hidden></div>',
             '<div id="view"></div>',

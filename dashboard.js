@@ -261,10 +261,10 @@ function renderStore() {
     <div class="big">${yen(s.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
     <div class="sub">純売上 ${yen(s.net)}円　${delta(s.gross, pv?.gross) || ''}　稼働 ${s.headcount}名</div>
     ${tg && tg.store ? `<div class="goalline ${rate >= 100 ? 'hit' : 'miss'}">
-      <span>月間目標 ${yen(tg.store)}円</span><b>${pct(rate)}</b>
-      <span class="rest">${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span></div>
+      <span>月間目標 <span class="amt">${yen(tg.store)}円</span></span><b>${pct(rate)}</b>
+      <span>${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span></div>
       <div class="track" style="margin-top:8px;height:7px">
-        <i class="${rate >= 100 ? '' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>` : ''}
+        <i class="${rate >= 100 ? 'ok' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>` : ''}
     <div style="margin-top:14px">${chart('gross', true, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
@@ -792,10 +792,10 @@ function renderPerson() {
     <div class="big">${yen(x.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
     <div class="sub">純売上 ${yen(x.net)}円　${delta(x.gross, pv?.gross) || ''}　担当 ${x.customers}人</div>
     ${ptg ? `<div class="goalline ${prate >= 100 ? 'hit' : 'miss'}">
-      <span>月間目標 ${yen(ptg.target)}円</span><b>${pct(prate)}</b>
-      <span class="rest">${x.gross >= ptg.target ? '達成しました' : 'あと ' + yen(ptg.target - x.gross) + '円'}</span></div>
+      <span>月間目標 <span class="amt">${yen(ptg.target)}円</span></span><b>${pct(prate)}</b>
+      <span>${x.gross >= ptg.target ? '達成しました' : 'あと ' + yen(ptg.target - x.gross) + '円'}</span></div>
       <div class="track" style="margin-top:8px;height:7px">
-        <i class="${prate >= 100 ? '' : 'bad'}" style="width:${Math.min(100, prate).toFixed(1)}%"></i></div>` : ''}
+        <i class="${prate >= 100 ? 'ok' : 'bad'}" style="width:${Math.min(100, prate).toFixed(1)}%"></i></div>` : ''}
     <div style="margin-top:14px">${chart('gross', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<section><h2 class="c-teal">成長の推移</h2>

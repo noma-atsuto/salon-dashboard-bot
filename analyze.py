@@ -12,7 +12,9 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "cache")
-EXCLUDE = {"AI TOKYO STYLE", "AI TOKYO 運営チーム", "フリー"}
+# 集計から外すアカウント（店舗共通の枠、退職した方）
+EXCLUDE = {"AI TOKYO STYLE", "AI TOKYO 運営チーム", "フリー",
+           "吉田周人 [池袋]"}
 TREAT = ("トリートメント", "AI me 3STEP", "ディープレイヤー")
 RETURN_DAYS = 75          # 新規が「戻ってきた」と見なす日数
 
