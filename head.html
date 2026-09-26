@@ -66,7 +66,11 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);margin:0;
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--paper);
   border-bottom:1px solid var(--line);margin-inline:-16px;padding:11px 16px 0}
 .sectab{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;margin:10px -16px 0;padding:0 16px 8px;scroll-behavior:smooth}
+  scrollbar-width:none;margin:10px -16px 0;padding:0 16px 8px;scroll-behavior:smooth;
+  cursor:grab;user-select:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%)}
+.sectab.grabbing{cursor:grabbing;scroll-behavior:auto}
 .sectab::-webkit-scrollbar{display:none}
 .sectab-b{font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap;flex:none;
   padding:7px 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface);
@@ -87,10 +91,17 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);margin:0;
 .top h1{font-size:18px;margin:0;letter-spacing:-.01em;font-weight:700;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ---- メニュー ---- */
-#menu{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--topH, 130px));z-index:29;
-  margin-inline:-16px;background:var(--surface);border-bottom:1px solid var(--line);
-  box-shadow:0 8px 22px rgba(0,0,0,.10);padding:8px}
+/* ---- メニュー（左から出る引き出し） ---- */
+.wrap{transition:transform .26s cubic-bezier(.4,0,.2,1);transform-origin:left center}
+body.drawer{overflow:hidden}
+body.drawer .wrap{transform:translateX(252px) scale(.86);border-radius:20px;
+  box-shadow:0 0 40px rgba(0,0,0,.28);overflow:hidden}
+#menu{position:fixed;left:0;top:0;bottom:0;width:252px;z-index:40;background:var(--surface);
+  border-right:1px solid var(--line);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  transform:translateX(-103%);transition:transform .26s cubic-bezier(.4,0,.2,1);
+  padding:calc(env(safe-area-inset-top,0px) + 22px) 10px calc(env(safe-area-inset-bottom,0px) + 20px)}
+body.drawer #menu{transform:none}
+#menu .mhead{font-size:10.5px;letter-spacing:.09em;color:var(--ink3);padding:0 14px 10px}
 #menu .mitem{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;
   font:inherit;padding:12px 14px;border:0;border-radius:11px;background:none;color:var(--ink);cursor:pointer}
 #menu .mitem:hover{background:var(--surface2)}
@@ -99,7 +110,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);margin:0;
 #menu .mitem b{font-size:15px;font-weight:700}
 #menu .mitem span{font-size:11.5px;color:var(--ink2)}
 #menu .mitem:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-#menubg{position:fixed;inset:0;z-index:28;background:rgba(0,0,0,.16)}
+#menubg{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.28)}
 .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
 select{font:inherit;font-size:14px;font-weight:500;padding:8px 30px 8px 12px;border-radius:10px;
   border:1px solid var(--line);background:var(--surface);color:var(--ink);min-height:40px;

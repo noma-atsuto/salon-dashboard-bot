@@ -992,7 +992,27 @@ function markSec() {
   }
 }
 
+// 上部バーは指でもマウスでも横に引ける
+let barDown = false, barX = 0, barLeft = 0, barMoved = false;
+secBar.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse') return;   // 指のときは端末の横スクロールに任せる
+  barDown = true; barMoved = false;
+  barX = e.clientX; barLeft = secBar.scrollLeft;
+  secBar.classList.add('grabbing');
+});
+secBar.addEventListener('pointermove', e => {
+  if (!barDown) return;
+  const dx = e.clientX - barX;
+  if (Math.abs(dx) > 4) barMoved = true;
+  secBar.scrollLeft = barLeft - dx;
+});
+const barUp = () => { barDown = false; secBar.classList.remove('grabbing'); };
+secBar.addEventListener('pointerup', barUp);
+secBar.addEventListener('pointerleave', barUp);
+secBar.addEventListener('pointercancel', barUp);
+
 secBar.addEventListener('click', ev => {
+  if (barMoved) { barMoved = false; return; }
   const b = ev.target.closest('.sectab-b');
   if (!b) return;
   const el = document.getElementById(b.dataset.id);
@@ -1090,12 +1110,14 @@ const menuBg = document.getElementById('menubg');
 const menuBtn = document.getElementById('menubtn');
 
 function setMenu(open) {
-  menu.hidden = !open;
+  document.body.classList.toggle('drawer', open);
+  menu.setAttribute('aria-hidden', String(!open));
   menuBg.hidden = !open;
   menuBtn.setAttribute('aria-expanded', String(open));
   menuBtn.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
 }
-menuBtn.addEventListener('click', () => setMenu(menu.hidden));
+const menuOpen = () => document.body.classList.contains('drawer');
+menuBtn.addEventListener('click', () => setMenu(!menuOpen()));
 
 // 画面の左端から右へなぞるとメニューが開く。開いているときは左へなぞると閉じる。
 let swX = null, swY = null;
@@ -1109,8 +1131,8 @@ document.addEventListener('touchend', e => {
   const dx = t.clientX - swX, dy = t.clientY - swY, startX = swX;
   swX = null;
   if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
-  if (dx > 0 && startX < 70 && menu.hidden) setMenu(true);
-  else if (dx < 0 && !menu.hidden) setMenu(false);
+  if (dx > 0 && startX < 70 && !menuOpen()) setMenu(true);
+  else if (dx < 0 && menuOpen()) setMenu(false);
 }, {passive: true});
 menuBg.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });

@@ -73,19 +73,7 @@ HTML_HEAD = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "head.
 def main():
     payload = build_payload()
     html = [HTML_HEAD,
-            '<div class="wrap">',
-            '<div class="top">',
-            '<div class="topbar">',
-            '<button id="menubtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="メニューを開く">'
-            '<span class="bars"><i></i><i></i><i></i></span></button>',
-            '<div class="titles"><p class="brand">AI TOKYO men\'s 池袋</p>'
-            '<h1 id="vtitle">店舗全体</h1></div>',
-            '</div>',
-            '<div class="ctrl"><select id="m" aria-label="対象月"></select>',
-            '<span id="ls" hidden></span><select id="s" aria-label="スタイリスト" hidden></select></div>',
-            '<div id="sectab" class="sectab" role="tablist" aria-label="ページ内の項目"></div>',
-            '</div>',
-            '<nav id="menu" hidden aria-label="表示の切り替え">',
+            '<nav id="menu" aria-label="表示の切り替え">',
             '<button class="mitem" data-v="store"><b>店舗全体</b>'
             '<span>売上・客数・目標の進み・予約経路・フィードバック</span></button>',
             '<button class="mitem" data-v="rank"><b>スタイリスト比較</b>'
@@ -98,6 +86,18 @@ def main():
             '<span>取得率ランキングと、その後の来店</span></button>',
             '</nav>',
             '<div id="menubg" hidden></div>',
+            '<div class="wrap">',
+            '<div class="top">',
+            '<div class="topbar">',
+            '<button id="menubtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="メニューを開く">'
+            '<span class="bars"><i></i><i></i><i></i></span></button>',
+            '<div class="titles"><p class="brand">AI TOKYO men\'s 池袋</p>'
+            '<h1 id="vtitle">店舗全体</h1></div>',
+            '</div>',
+            '<div class="ctrl"><select id="m" aria-label="対象月"></select>',
+            '<span id="ls" hidden></span><select id="s" aria-label="スタイリスト" hidden></select></div>',
+            '<div id="sectab" class="sectab" role="tablist" aria-label="ページ内の項目"></div>',
+            '</div>',
             '<div id="view"></div>',
             '<p class="foot">ビューティーメリットのデータをもとに自動作成しています。'
             '数値の最終確認は管理画面でお願いします。<br>'
