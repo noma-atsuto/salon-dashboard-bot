@@ -1,0 +1,22 @@
+# Cloudflare Worker の設定ファイル
+# ここを書き換える必要は基本的にありません。
+
+name = "salon-chat"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Workers AI を使うための接続。これがあるので APIキーは不要です。
+[ai]
+binding = "AI"
+
+[vars]
+# ダッシュボードを置いているページのアドレス。ここ以外からは使えません。
+ALLOW_ORIGIN = "https://noma-atsuto.github.io"
+
+# 使うAIモデル。変えたいときはここだけ書き換えてください。
+#   @cf/google/gemma-4-26b-a4b-it   … 標準（安い・日本語まずまず）
+#   @cf/openai/gpt-oss-120b         … 賢いが消費が約3倍
+#   @cf/qwen/qwen3-30b-a3b-fp8      … いちばん安い
+MODEL = "@cf/google/gemma-4-26b-a4b-it"
+
+# CHAT_TOKEN（合言葉）は secret として別に登録します。ここには書きません。

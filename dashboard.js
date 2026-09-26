@@ -943,6 +943,224 @@ function renderPerson() {
   return h;
 }
 
+
+/* ───────── AIに聞く ───────── */
+const CHAT = P.chat || null;
+let chatLog = [];          // {role:'user'|'assistant'|'error', text}
+let chatBusy = false;
+let chatDraft = '';
+
+const CHAT_SAMPLES = [
+  '今月の数字を3行でまとめて',
+  '先月と比べて、いちばん変わったのは？',
+  '目標まであと何が必要？',
+  '店販を伸ばすなら誰にどう声をかける？',
+  '次回予約が取れている人と取れていない人の差は？',
+  'いま一番の課題を1つだけ挙げて',
+];
+
+// AIに渡す「いま見えている数字」を、短い文章にまとめる
+function chatContext() {
+  const d = cur(), s = d.store, t = d.target;
+  const y = month.slice(0, 4), mo = Number(month.slice(5));
+  const n = v => (v === null || v === undefined) ? '—' : yen(v) + '円';
+  const c = v => (v === null || v === undefined) ? '—' : yen(v) + '人';
+  const p = v => (v === null || v === undefined) ? '—' : pct(v);
+  const L = [];
+
+  L.push(`■ 店舗全体 ${y}年${mo}月` +
+    (d.partial ? `（${mo}/1〜${Number(d.end.slice(8))}日まで・集計途中）` : '（確定）'));
+  L.push(`総売上 ${n(s.gross)} ／ 純売上 ${n(s.net)} ／ 客数 ${c(s.customers)} ／ 客単価 ${n(s.avg)}`);
+  L.push(`新規 ${c(s.new)}(${p(s.new_rate)}) ／ 再来 ${c(s.repeat)}(${p(s.repeat_rate)}) ／ 指名 ${p(s.nom_rate)}`);
+  L.push(`店販 ${n(s.goods)}（購入者 ${c(s.goods_buyers)}・購入率 ${p(s.goods_buy_rate)}・購入者平均 ${n(s.goods_per_buyer)}）`);
+  L.push(`技術売上 ${n(s.tech)} ／ 指名料 ${n(s.nominate_fee)} ／ 割引 ${n(s.discount)} ／ ポイント利用 ${n(s.points)}`);
+  L.push(`トリートメント装着率 ${p(s.treat_rate)}（売上 ${n(s.treat_sales)}）`);
+  if (s.return) L.push(`リターン率 ${p(s.return.rate)}（新規 ${s.return.judged}人中 ${s.return.returned}人が再来）`);
+  const f = s.rebook_made;
+  if (f) L.push(`次回予約：この月に取った ${f.made}件／初回来店 ${f.first_visits}人（取得率 ${f.take_rate !== null ? p(f.take_rate) : '—'}）` +
+    `・来店 ${f.done}件・キャンセル ${f.cancelled}件・来店待ち ${f.upcoming}件`);
+  L.push(`この月に来店した次回予約 ${s.rebook}件（お会計の ${p(s.rebook_rate)}）`);
+  L.push(`フリー予約 ${s.free_count}件(${p(s.free_rate)}) ／ 在籍 ${s.headcount ?? '—'}人`);
+  L.push(`営業日数 ${s.workdays}日` + (t && t.store_days ? `（今月の予定 ${t.store_days}日）` : '') +
+    ` ／ スタイリストの出勤のべ ${d.stylists.reduce((a, x) => a + (x.workdays || 0), 0)}日`);
+  L.push(`1日あたり 総売上 ${n(s.gross_per_day)} ／ 客数 ${s.cust_per_day != null ? s.cust_per_day.toFixed(1) + '人' : '—'}`);
+  if (t) {
+    const rate = t.store ? s.gross / t.store * 100 : 0;
+    L.push(`月間目標（総売上）${n(t.store)} → 達成率 ${p(rate)}` +
+      (t.store > s.gross ? `・あと ${n(t.store - s.gross)}` : '・達成済み'));
+  }
+
+  // 直近6ヶ月の推移
+  const idx = P.months.indexOf(month);
+  const hist = P.months.slice(Math.max(0, idx - 5), idx + 1);
+  L.push('');
+  L.push('■ 直近の推移（月：総売上／客数／客単価／店販／目標達成率）');
+  hist.forEach(m => {
+    const x = P.data[m].store, tt = P.data[m].target;
+    const r = tt && tt.store ? x.gross / tt.store * 100 : null;
+    L.push(`${Number(m.slice(5))}月${P.data[m].partial ? '(途中)' : ''}：` +
+      `${n(x.gross)}／${c(x.customers)}／${n(x.avg)}／${n(x.goods)}／${r !== null ? p(r) : '—'}`);
+  });
+
+  // スタイリスト一覧
+  L.push('');
+  L.push(`■ スタイリスト（${y}年${mo}月）`);
+  L.push('名前｜出勤｜総売上｜客数｜客単価｜店販｜店販購入率｜次回予約取得率｜リターン率｜トリートメント率｜目標｜達成率');
+  [...d.stylists].sort((a, b) => b.gross - a.gross).forEach(x => {
+    const tv = t && t.stylists ? t.stylists[x.name] : null;
+    const r = tv && tv.target ? tv.actual / tv.target * 100 : null;
+    L.push([esc(x.name), x.workdays + '日', n(x.gross), c(x.customers), n(x.avg), n(x.goods),
+            p(x.goods_buy_rate),
+            x.rebook_made && x.rebook_made.take_rate !== null ? p(x.rebook_made.take_rate) : '—',
+            x.return ? p(x.return.rate) : '—', p(x.treat_rate),
+            tv ? n(tv.target) : '—', r !== null ? p(r) : '—'].join('｜'));
+  });
+
+  // 目安にしている水準
+  L.push('');
+  L.push(`■ 目安（この店の目標値）次回予約取得率 ${T.rebook_rate}% ／ リターン率 ${T.return_rate}% ／ ` +
+    `トリートメント装着率 ${T.treat_rate}% ／ 店販1人あたり ${T.goods_per}円`);
+
+  // よく出た商品・メニュー
+  if (d.top_goods && d.top_goods.length) {
+    L.push('');
+    L.push('■ よく出た店販（商品：点数／売上）');
+    d.top_goods.slice(0, 8).forEach(g =>
+      L.push(`${esc(g[0])}：${g[1]}点／${n(g[2])}`));
+  }
+  if (d.top_menus && d.top_menus.length) {
+    L.push('');
+    L.push('■ よく出たメニュー（名前：件数／売上）');
+    d.top_menus.slice(0, 10).forEach(g =>
+      L.push(`${esc(g[0])}：${g[1]}件／${n(g[2])}`));
+  }
+  return L.join('\n');
+}
+
+// AIの答えを軽く整形する（**太字** と 改行 だけ）
+function chatFmt(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\n/g, '<br>');
+}
+
+function renderChat() {
+  if (!CHAT) {
+    return `<section><div class="panel"><p>AIチャットはまだ設定されていません。</p></div></section>`;
+  }
+  const mo = Number(month.slice(5));
+  let h = `<section><h2 class="c-purple">AIに聞く</h2>
+    <p class="lede">いま選んでいる <b>${month.slice(0, 4)}年${mo}月</b> の数字をAIが読んで答えます。
+    ふつうのことばで質問してください。月を変えたいときは、上の月えらびを切り替えてから聞いてください。</p>`;
+
+  h += '<div class="chat">';
+  h += '<div class="clog" id="clog">';
+  if (!chatLog.length) {
+    h += `<div class="cempty">下の質問例を押すか、ことばで質問を入力してください。</div>`;
+  } else {
+    h += chatLog.map(m =>
+      m.role === 'user'
+        ? `<div class="cmsg me"><div class="cbub">${esc(m.text).replace(/\n/g, '<br>')}</div></div>`
+        : m.role === 'error'
+          ? `<div class="cmsg ai"><div class="cbub err">${esc(m.text)}</div></div>`
+          : `<div class="cmsg ai"><div class="cwho">AI</div><div class="cbub">${chatFmt(m.text)}</div></div>`
+    ).join('');
+  }
+  if (chatBusy) {
+    h += `<div class="cmsg ai"><div class="cwho">AI</div>
+      <div class="cbub thinking"><i></i><i></i><i></i></div></div>`;
+  }
+  h += '</div>';
+
+  h += '<div class="csamples">' + CHAT_SAMPLES.map(q =>
+    `<button class="csample" type="button" data-q="${esc(q)}"${chatBusy ? ' disabled' : ''}>${esc(q)}</button>`
+  ).join('') + '</div>';
+
+  h += `<div class="cform">
+    <textarea id="chatq" rows="1" placeholder="数字について聞いてみてください"
+      aria-label="AIへの質問"${chatBusy ? ' disabled' : ''}></textarea>
+    <button id="csend" type="button"${chatBusy || !chatDraft.trim() ? ' disabled' : ''}
+      aria-label="送る">送る</button>
+  </div>`;
+  if (chatLog.length) {
+    h += `<div class="cfoot"><button id="cclear" type="button">会話をリセット</button></div>`;
+  }
+  h += '</div></section>';
+
+  h += `<section><h2 class="c-ink">使うときの注意</h2><div class="notes">
+    <div class="note y">AIの答えは<b>まちがうことがあります</b>。大事な判断をする前に、
+      かならず画面の数字とビューティーメリットの管理画面で確かめてください。</div>
+    <div class="note">質問と、この画面の数字はAI（Cloudflare Workers AI）に送られます。
+      送った内容が<b>AIの学習に使われることはありません</b>。</div>
+    <div class="note">1日に使える回数に上限があります。使い切った場合は、
+      翌朝9時にまた使えるようになります。</div>
+  </div></section>`;
+  return h;
+}
+
+async function chatSend(text) {
+  if (chatBusy || !CHAT) return;
+  const q = String(text !== undefined ? text : chatDraft).trim();
+  if (!q) return;
+
+  const hist = chatLog
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .slice(-6)
+    .map(m => ({role: m.role, content: m.text}));
+
+  chatLog.push({role: 'user', text: q});
+  chatDraft = '';
+  chatBusy = true;
+  render();
+
+  try {
+    const res = await fetch(CHAT.url, {
+      method: 'POST',
+      headers: {'content-type': 'application/json', 'authorization': 'Bearer ' + CHAT.token},
+      body: JSON.stringify({q, ctx: chatContext(), history: hist}),
+    });
+    let j = {};
+    try { j = await res.json(); } catch (e) {}
+    if (j && j.a) chatLog.push({role: 'assistant', text: j.a});
+    else chatLog.push({role: 'error', text: (j && j.e) || `うまく答えが返ってきませんでした（${res.status}）。`});
+  } catch (e) {
+    chatLog.push({role: 'error',
+      text: '通信できませんでした。電波の状態を確かめて、もう一度お試しください。'});
+  }
+  chatBusy = false;
+  render();
+}
+
+// 画面を描き直したあと、入力中の文と、いちばん下までのスクロールを戻す
+function afterChat() {
+  const ta = document.getElementById('chatq');
+  if (ta) {
+    ta.value = chatDraft;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(150, ta.scrollHeight) + 'px';
+  }
+  const log = document.getElementById('clog');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+
+document.addEventListener('input', ev => {
+  if (ev.target && ev.target.id === 'chatq') {
+    const was = chatDraft.trim() !== '';
+    chatDraft = ev.target.value;
+    ev.target.style.height = 'auto';
+    ev.target.style.height = Math.min(150, ev.target.scrollHeight) + 'px';
+    const btn = document.getElementById('csend');
+    if (btn) btn.disabled = chatBusy || !chatDraft.trim();
+  }
+});
+
+document.addEventListener('keydown', ev => {
+  if (ev.target && ev.target.id === 'chatq' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+    ev.preventDefault();
+    chatSend();
+  }
+});
+
 let scrollTop = false;
 
 /* ---- ページ内の項目を上部に並べ、タップで移動する ---- */
@@ -1044,14 +1262,20 @@ function render() {
   selS.hidden = !show; lblS.hidden = !show;
   document.getElementById('view').innerHTML =
     view === 'store' ? renderStore() : view === 'rank' ? renderRank()
-    : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal() : renderPerson();
+    : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal()
+    : view === 'chat' ? renderChat() : renderPerson();
   if (scrollTop) { window.scrollTo({top: 0, behavior: 'instant'}); }
   scrollTop = false;
   buildSecTabs();
   setTopVar();
+  if (view === 'chat') afterChat();
 }
 
 document.getElementById('view').addEventListener('click', ev => {
+  const cs = ev.target.closest('.csample');
+  if (cs) { chatSend(cs.dataset.q); return; }
+  if (ev.target.closest('#csend')) { chatSend(); return; }
+  if (ev.target.closest('#cclear')) { chatLog = []; render(); return; }
   const st = ev.target.closest('.stab');
   if (st) { subTab[st.dataset.s] = st.dataset.k; render(); return; }
   const fw = ev.target.closest('.fwho');
@@ -1104,7 +1328,7 @@ document.getElementById('view').addEventListener('click', ev => {
 });
 
 const VIEW_NAME = {store: '店舗全体', rank: 'スタイリスト比較', goal: '目標',
-                   rebook: '次回予約', person: '個人カルテ'};
+                   rebook: '次回予約', person: '個人カルテ', chat: 'AIに聞く'};
 const menu = document.getElementById('menu');
 const menuBg = document.getElementById('menubg');
 const menuBtn = document.getElementById('menubtn');

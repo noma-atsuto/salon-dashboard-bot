@@ -6,6 +6,11 @@ import analyze, feedback
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
 
+# AIチャットの中継先。両方そろっているときだけ「AIに聞く」を出す。
+CHAT_URL = os.environ.get("CHAT_URL", "").strip()
+CHAT_TOKEN = os.environ.get("CHAT_TOKEN", "").strip()
+CHAT_ON = bool(CHAT_URL and CHAT_TOKEN)
+
 
 def build_payload():
     data = analyze.build()
@@ -64,6 +69,8 @@ def build_payload():
         payload["data"][m]["target"] = tmp[m].get("target")
     payload["growth"] = analyze.GROWTH
     payload["history"] = analyze.load_history()
+    if CHAT_ON:
+        payload["chat"] = {"url": CHAT_URL, "token": CHAT_TOKEN}
     return payload
 
 
@@ -85,6 +92,8 @@ def main():
             '<span>今月の売上目標と、達成までの残り</span></button>',
             '<button class="mitem" data-v="rebook"><b>次回予約</b>'
             '<span>取得率ランキングと、その後の来店</span></button>',
+            *(['<button class="mitem" data-v="chat"><b>AIに聞く</b>'
+               '<span>今の数字について、ことばで質問できます</span></button>'] if CHAT_ON else []),
             '</nav>',
             '<div id="menubg" hidden></div>',
             '<div class="wrap">',

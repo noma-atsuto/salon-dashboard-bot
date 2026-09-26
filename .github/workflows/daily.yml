@@ -57,6 +57,9 @@ jobs:
         env:
           TZ: Asia/Tokyo
           PAGE_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
+          # AIチャット。この2つが両方そろっているときだけ「AIに聞く」が出ます。
+          CHAT_URL: ${{ secrets.CHAT_URL }}
+          CHAT_TOKEN: ${{ secrets.CHAT_TOKEN }}
         run: python build_public.py
 
       - name: 公開リポジトリへ反映（変化がなければ何もしません）
