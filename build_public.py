@@ -193,8 +193,10 @@ def main():
         app_code = m2.group(1)
         rest = rest[:m2.start()] + rest[m2.end():]
 
-        # 見出しやスタイルを除いた「画面そのもの」を取り出す
-        m3 = re.search(r'(<div class="wrap">.*</div>)', rest, re.S)
+        # 見出しやスタイルを除いた「画面そのもの」を取り出す。
+        # 左のメニューは .wrap の外にあるので、そこから丸ごと含める
+        # （含めないとメニューの項目名がページのソースに残ってしまう）。
+        m3 = re.search(r'(<nav id="menu".*</div>)', rest, re.S)
         if not m3:
             raise SystemExit("画面の中身が見つかりません")
         wrap_html = m3.group(1)
