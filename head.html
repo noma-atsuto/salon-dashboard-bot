@@ -182,7 +182,16 @@ tr.total td:first-child{background:var(--surface2)}
 
 /* ---- グラフ ---- */
 svg.chart{width:100%;height:auto;max-height:190px;display:block;overflow:visible}
-.mbar,.dbar,.gbar{cursor:pointer}
+.mbar,.dbar,.gbar,.tbar{cursor:pointer}
+svg.trend{max-height:240px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 14px;margin-top:9px}
+.legend div{display:flex;align-items:center;gap:7px;font-size:12.5px}
+.legend i{width:12px;height:3px;border-radius:2px;flex:none}
+.legend span{color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ckey{display:flex;flex-wrap:wrap;gap:7px 15px;margin:11px 0 3px;font-size:12px}
+.ckey span{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+.ckey i{width:15px;height:4px;border-radius:2px;flex:none}
 .dayinfo{margin-top:14px;padding:13px 15px;border-radius:12px;background:var(--accent-soft);
   border-left:3px solid var(--accent)}
 .dhead{font-size:15px;font-weight:700;letter-spacing:-.01em}
