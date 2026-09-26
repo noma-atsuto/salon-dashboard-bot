@@ -1033,7 +1033,9 @@ function setTopVar() {
 window.addEventListener('resize', () => { setTopVar(); markSec(); });
 
 function render() {
-  document.getElementById('vtitle').textContent = VIEW_NAME[view] || '';
+  document.getElementById('vtitle').innerHTML =
+    esc(VIEW_NAME[view] || '') +
+    (VIEW_MARK[view] ? `<span class="homemark">${VIEW_MARK[view]}</span>` : '');
   document.querySelectorAll('.mitem').forEach(b =>
     b.setAttribute('aria-current', String(b.dataset.v === view)));
   selS.innerHTML = '';
@@ -1105,6 +1107,7 @@ document.getElementById('view').addEventListener('click', ev => {
 
 const VIEW_NAME = {store: '店舗全体', rank: 'スタイリスト比較', goal: '目標',
                    rebook: '次回予約', person: '個人カルテ'};
+const VIEW_MARK = {store: 'ホーム画面'};
 const menu = document.getElementById('menu');
 const menuBg = document.getElementById('menubg');
 const menuBtn = document.getElementById('menubtn');
