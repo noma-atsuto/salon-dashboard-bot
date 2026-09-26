@@ -52,6 +52,8 @@ jobs:
           python fetch_rebook.py
           python fetch_shift.py
           python fetch_monthly.py
+          # 入口のニュース。取れなくても前回分が残るので、ここで止めない
+          python fetch_news.py || true
 
       - name: ページを作る（合言葉つき）
         env:
