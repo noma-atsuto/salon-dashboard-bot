@@ -4,9 +4,8 @@ const T = P.target;
 const yen = n => Math.round(n).toLocaleString('ja-JP');
 const pct = n => n.toFixed(1) + '%';
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const complete = P.months.filter(m => !P.data[m].partial);
 let view = 'store';
-let month = complete.length ? complete[complete.length - 1] : P.months[P.months.length - 1];
+let month = P.months[P.months.length - 1];   // 既定は当月
 let person = null;
 
 const selM = document.getElementById('m'), selS = document.getElementById('s'), lblS = document.getElementById('ls');
@@ -255,10 +254,18 @@ function partial() {
 function renderStore() {
   const d = cur(), s = d.store, pv = prev()?.store;
   let h = partial();
-  h += `<div class="hero"><div class="lab">純売上</div>
-    <div class="big">${yen(s.net)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">${delta(s.net, pv?.net) || '&nbsp;'}　稼働 ${s.headcount}名</div>
-    <div style="margin-top:14px">${chart('net', true, '円')}</div>
+  const tg = d.target;
+  const rate = tg && tg.store ? s.gross / tg.store * 100 : null;
+  const rest = tg && tg.store ? Math.max(0, tg.store - s.gross) : 0;
+  h += `<div class="hero"><div class="lab">総売上</div>
+    <div class="big">${yen(s.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
+    <div class="sub">純売上 ${yen(s.net)}円　${delta(s.gross, pv?.gross) || ''}　稼働 ${s.headcount}名</div>
+    ${tg && tg.store ? `<div class="goalline ${rate >= 100 ? 'hit' : 'miss'}">
+      <span>月間目標 ${yen(tg.store)}円</span><b>${pct(rate)}</b>
+      <span>${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span></div>
+      <div class="track" style="margin-top:8px;height:7px">
+        <i class="${rate >= 100 ? 'ok' : 'bad'}" style="width:${Math.min(100, rate).toFixed(1)}%"></i></div>` : ''}
+    <div style="margin-top:14px">${chart('gross', true, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<div class="strip">
     <div><div class="k">総売上（割引前）</div><div class="v">${yen(s.gross)}</div><div class="d">${delta(s.gross, pv?.gross) || '円'}</div></div>
@@ -779,10 +786,17 @@ function renderPerson() {
   let h = partial();
   h += `<section><div class="who"><h2>${esc(x.name)}</h2>
     ${f.tag ? `<span class="tag">${esc(f.tag)}</span>` : ''}</div></section>`;
-  h += `<div class="hero"><div class="lab">純売上</div>
-    <div class="big">${yen(x.net)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">${delta(x.net, pv?.net) || '&nbsp;'}　担当 ${x.customers}人</div>
-    <div style="margin-top:14px">${chart('net', false, '円')}</div>
+  const ptg = d.target && d.target.stylists[x.name];
+  const prate = ptg && ptg.target ? x.gross / ptg.target * 100 : null;
+  h += `<div class="hero"><div class="lab">総売上</div>
+    <div class="big">${yen(x.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
+    <div class="sub">純売上 ${yen(x.net)}円　${delta(x.gross, pv?.gross) || ''}　担当 ${x.customers}人</div>
+    ${ptg ? `<div class="goalline ${prate >= 100 ? 'hit' : 'miss'}">
+      <span>月間目標 ${yen(ptg.target)}円</span><b>${pct(prate)}</b>
+      <span>${x.gross >= ptg.target ? '達成しました' : 'あと ' + yen(ptg.target - x.gross) + '円'}</span></div>
+      <div class="track" style="margin-top:8px;height:7px">
+        <i class="${prate >= 100 ? 'ok' : 'bad'}" style="width:${Math.min(100, prate).toFixed(1)}%"></i></div>` : ''}
+    <div style="margin-top:14px">${chart('gross', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
   h += `<section><h2 class="c-teal">成長の推移</h2>
     <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
@@ -919,6 +933,22 @@ function setMenu(open) {
   menuBtn.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
 }
 menuBtn.addEventListener('click', () => setMenu(menu.hidden));
+
+// 画面の左端から右へなぞるとメニューが開く。開いているときは左へなぞると閉じる。
+let swX = null, swY = null;
+document.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  swX = t.clientX; swY = t.clientY;
+}, {passive: true});
+document.addEventListener('touchend', e => {
+  if (swX === null) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swX, dy = t.clientY - swY, startX = swX;
+  swX = null;
+  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+  if (dx > 0 && startX < 70 && menu.hidden) setMenu(true);
+  else if (dx < 0 && !menu.hidden) setMenu(false);
+}, {passive: true});
 menuBg.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
 document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () => {
