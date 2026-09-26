@@ -259,6 +259,7 @@ def _metrics(d, all_df=None, month=None, first_days=None):
                      b["支払い方法"].fillna("不明").value_counts().items()}
     m["daily"] = _daily(d)
     m["detail"] = _detail(d)
+    m.update(_dow_hour(d))
     # 初回来店のお客様が何人いたか（次回予約の取得率の分母）
     m["first_visits"] = m["new"]     # 初回来店のお客様＝新規のお客様
     # 出勤日数：シフトの記録があればそちら（予約枠を開けている日）を使う
@@ -268,6 +269,42 @@ def _metrics(d, all_df=None, month=None, first_days=None):
     m["workday_source"] = "sales"
     m["gross_per_day"] = 0.0
     return m
+
+
+def _dow_hour(d):
+    """曜日ごと・会計した時間帯ごとの傾向。
+
+    時間帯は「会計した時刻」で数えている（来店時刻ではないので、実際の来店より
+    施術時間のぶん後ろにずれる）。
+    """
+    if d.empty:
+        return {"dow": [], "hour": []}
+    plus = d[~((d["区分"] == "技術") & (d["カテゴリ"] == "割引クーポン"))
+             & ~((d["区分"] == "その他") & (d["カテゴリ"] == "ポイント"))]
+    gross = plus.groupby("会計ID")["金額"].sum()
+    b = d.drop_duplicates("会計ID").copy()
+    b["gross"] = b["会計ID"].map(gross).fillna(0.0)
+    b["wd"] = b["来店日"].dt.weekday          # 0=月 … 6=日
+    b["date"] = b["来店日"].dt.date
+
+    dow = []
+    for w in range(7):
+        g = b[b["wd"] == w]
+        days = int(g["date"].nunique())
+        dow.append({"w": w, "days": days, "customers": int(len(g)),
+                    "gross": float(g["gross"].sum()),
+                    "per_day_customers": (len(g) / days) if days else 0.0,
+                    "per_day_gross": (float(g["gross"].sum()) / days) if days else 0.0})
+
+    hr = pd.to_numeric(b["会計時間"].astype(str).str.slice(0, 2), errors="coerce")
+    b = b.assign(hh=hr).dropna(subset=["hh"])
+    hour = []
+    for h in range(9, 23):
+        g = b[b["hh"] == h]
+        if len(g) == 0:
+            continue
+        hour.append({"h": h, "customers": int(len(g)), "gross": float(g["gross"].sum())})
+    return {"dow": dow, "hour": hour}
 
 
 def _detail(d, top=15):
@@ -505,6 +542,50 @@ def build_targets(out, sh, months):
 
 
 FORECAST_MONTHS = 12      # 何ヶ月先まで予測するか
+
+
+def build_backtest(out, months):
+    """予測の答え合わせ。
+
+    「その月より前の実績だけ」を使って予測を立て直し、実際の結果と突き合わせる。
+    水準の当たり外れだけを見たいので、出勤日数はその月の実績をそのまま使う。
+    """
+    season, _ = seasonal_index()
+    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
+    done = [m for m in months
+            if not out[m]["partial"] and (not SINCE or m >= SINCE)
+            and out[m]["store"].get("workdays")]
+    rows = []
+    for i, m in enumerate(done):
+        base = done[:i]
+        if len(base) < 2:          # 材料が2ヶ月ぶんないと予測にならない
+            continue
+        lv = []
+        for bm in base:
+            st = out[bm]["store"]
+            if st.get("workdays"):
+                lv.append(st["gross"] / st["workdays"] / sfac(bm))
+        if not lv:
+            continue
+        days = out[m]["store"]["workdays"]
+        f = sfac(m)
+        pred = {"mid": sum(lv) / len(lv) * days * f,
+                "high": max(lv) * days * f,
+                "low": min(lv) * days * f}
+        act = out[m]["store"]["gross"]
+        rows.append({
+            "month": m, "actual": act, "days": days,
+            "based_on": len(base),
+            **{k: v for k, v in pred.items()},
+            "gap": (pred["mid"] - act) / act * 100 if act else 0.0,
+            "inside": pred["low"] <= act <= pred["high"],
+        })
+    if not rows:
+        return None
+    errs = [abs(r["gap"]) for r in rows]
+    return {"rows": rows,
+            "mae": sum(errs) / len(errs),
+            "hit": sum(1 for r in rows if r["inside"]) / len(rows) * 100}
 
 
 def build_forecast(out, sh, months):

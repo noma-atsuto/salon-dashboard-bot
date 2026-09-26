@@ -276,6 +276,8 @@ function renderStore() {
     <div><div class="k">新規／再来</div><div class="v">${s.new}／${s.repeat}</div><div class="d">再来率 ${pct(s.repeat_rate)}</div></div>
   </div>`;
 
+  h += yoyBlock();
+
   const r = s.return;
   h += `<section><h2 class="c-blue">目標に対して、いま どこにいるか</h2>
     <p class="lede">今回の施策で動かしたい4つの数字です。</p><div class="panel goal">
@@ -298,6 +300,8 @@ function renderStore() {
       買っていない方も含めた ${yen(s.customers)}人全員で割った数字です。
       実際に買ってくださった方は、平均 <b>${yen(s.goods_per_buyer)}円</b> 使っています。</div>`;
   h += `</section>`;
+
+  h += routeKpi();
 
   h += `<section><h2 class="c-teal">日ごとの売上</h2>
     <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
@@ -794,6 +798,10 @@ function renderGoal() {
     <p class="lede">3つの見通しで、先の売上を見積もっています。</p>
     <div class="panel">${forecastChart()}</div></section>`;
 
+  h += `<section><h2 class="c-orange">予測の答え合わせ</h2>
+    <p class="lede">この予測が実際どれくらい当たっているかを、過ぎた月で検証しています。</p>
+    ${backtestBlock()}</section>`;
+
   h += subBlock('goal', [
     ['how', howHtml, '目標の決め方', 'blue'],
     ['season', seasonHtml, '月ごとの忙しさ', 'yellow'],
@@ -868,6 +876,23 @@ function growthBlock(name) {
     <p class="mini" style="margin-top:8px">棒をタップすると、その月の数字が出ます。上のボタンで見る項目を変えられます。</p>`;
 }
 
+// 月の途中に「このまま行くとどうなるか」を出す
+function paceNote(x, tg, isPartial) {
+  if (!isPartial || !tg || !tg.target || !x.workdays || !tg.days) return '';
+  const projected = x.gross / x.workdays * tg.days;
+  const rate = projected / tg.target * 100;
+  const gap = tg.target - projected;
+  const needLeft = Math.max(0, tg.days - x.workdays);
+  return `<div class="note ${rate >= 100 ? 'g' : rate >= 90 ? 'y' : 'r'}" style="margin-top:12px">
+    <b>このペースだと ${yen(projected)}円（達成率 ${pct(rate)}）</b>です。
+    出勤 ${x.workdays}日ぶんの実績から、${tg.days}日ぶんに引き伸ばして計算しています。<br>
+    ${gap > 0 && needLeft
+      ? `届くには、残り${needLeft}日で1日あたり <b>${yen((tg.target - x.gross) / needLeft)}円</b>
+         が必要です（ここまでは1日 ${yen(x.gross / x.workdays)}円）。`
+      : gap > 0 ? `残りの出勤日がないため、この目標には届かない見込みです。`
+      : `このままいけば<b>目標を超えます</b>。`}</div>`;
+}
+
 function renderPerson() {
   const d = cur(), s = d.store, x = d.stylists.find(v => v.name === person);
   if (!x) return '<section><div class="panel">この月のデータがありません。</div></section>';
@@ -914,7 +939,7 @@ function renderPerson() {
         <span class="tgt">目標 ${yen(tg.target)}円　${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span>
         <div class="track"><i class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}"
           style="width:${Math.min(100, r).toFixed(1)}%"></i></div>
-      </div></div></section>`;
+      </div></div>${paceNote(x, tg, d.partial)}</section>`;
   }
 
   h += `<section><h2>目標に対して</h2><p class="lede">かっこ内は店舗全体の数字です。</p><div class="panel goal">
@@ -951,6 +976,279 @@ function renderPerson() {
   return h;
 }
 
+
+/* ───────── 前年同月比 ───────── */
+const lastYear = m => (Number(m.slice(0, 4)) - 1) + m.slice(4);
+
+function yoyBlock() {
+  const H = P.history && P.history.store;
+  if (!H) return '';
+  const ly = lastYear(month), a = H[month], b = H[ly];
+  const d = cur(), s = d.store, t = d.target;
+  if (!b) {
+    return `<section><h2 class="c-yellow">前年同月比</h2>
+      <div class="panel"><p class="mini" style="margin:0">
+      ${Number(ly.slice(0, 4))}年${Number(ly.slice(5))}月のデータがまだありません。
+      記録は ${P.history.months[0] ? Number(P.history.months[0].slice(0, 4)) + '年'
+        + Number(P.history.months[0].slice(5)) + '月' : '—'}から貯め始めています。</p></div></section>`;
+  }
+  // 途中の月は、同じ土俵で比べられるよう「このペースなら」の見込みも出す
+  const days = s.workdays, plan = (t && t.store_days) || days;
+  const proj = (days && plan) ? s.gross / days * plan : s.gross;
+  const rows = [
+    ['総売上', s.gross, b.gross, v => yen(v) + '円'],
+    ['客数', s.customers, b.customers, v => yen(v) + '人'],
+    ['客単価', s.avg, b.avg, v => yen(v) + '円'],
+  ];
+  let h = `<section><h2 class="c-yellow">前年同月比</h2>
+    <p class="lede">${Number(ly.slice(0, 4))}年${Number(ly.slice(5))}月と比べています。
+    繁忙期・閑散期かどうかを、去年の同じ月を基準に判断できます。</p>
+    <div class="tbl"><table><thead><tr><th>項目</th>
+      <th>${Number(month.slice(0, 4))}年${Number(month.slice(5))}月</th>
+      <th>${Number(ly.slice(0, 4))}年${Number(ly.slice(5))}月</th><th>増減</th></tr></thead><tbody>`;
+  rows.forEach(([lab, now, was, fmt]) => {
+    const r = was ? (now - was) / was * 100 : null;
+    h += `<tr><td>${lab}</td><td>${fmt(now)}</td><td>${fmt(was)}</td>
+      <td class="${r === null ? '' : r >= 0 ? 'ok' : 'bad'}">${r === null ? '—' :
+        (r >= 0 ? '+' : '') + r.toFixed(1) + '%'}</td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  if (d.partial) {
+    const r = b.gross ? (proj - b.gross) / b.gross * 100 : null;
+    h += `<div class="note y" style="margin-top:12px">
+      この月は<b>まだ集計の途中</b>です（営業${days}日／今月の予定${plan}日）。
+      去年は1ヶ月ぶんの数字なので、そのままでは比べられません。<br>
+      <b>このペースが続いた場合の見込みは ${yen(proj)}円</b>で、
+      去年の同じ月（${yen(b.gross)}円）に対して
+      <b>${r === null ? '—' : (r >= 0 ? '+' : '') + r.toFixed(1) + '%'}</b>です。</div>`;
+  }
+  return h + `</section>`;
+}
+
+/* ───────── 予約の入口（どこから予約が来たか） ───────── */
+const ROUTE_COLOR = {'アプリ': 'green', 'ホットペッパービューティー': 'orange',
+  '電話予約': 'blue', '次回予約': 'purple', 'Web予約': 'teal', 'Google': 'yellow'};
+
+function routeKpi() {
+  const d = cur(), s = d.store, pv = prev()?.store;
+  const n = s.customers || 1;
+  const rows = Object.entries(s.routes || {}).sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return '';
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  let h = `<section><h2 class="c-green">予約の入口</h2>
+    <p class="lede">お客様がどこから予約したかの内訳です。
+    ホットペッパー経由は掲載料がかかるため、<b>アプリ・次回予約の比率を上げるほど手残りが増えます</b>。</p>
+    <div class="strip" style="margin-top:0">
+      <div><div class="k">アプリ経由</div><div class="v">${pct(s.app_rate)}</div>
+        <div class="d">${s.routes['アプリ'] || 0}件${pv ? '／前月 ' + pct(pv.app_rate) : ''}</div></div>
+      <div><div class="k">ホットペッパー経由</div><div class="v">${pct(s.hpb_rate)}</div>
+        <div class="d">${s.routes['ホットペッパービューティー'] || 0}件${pv ? '／前月 ' + pct(pv.hpb_rate) : ''}</div></div>
+      <div><div class="k">指名</div><div class="v">${s.nom_count}<span style="font-size:.62em">件</span></div>
+        <div class="d">お客様の ${pct(s.nom_rate)}</div></div>
+      <div><div class="k">フリー予約</div><div class="v">${s.free_count}<span style="font-size:.62em">件</span></div>
+        <div class="d">お客様の ${pct(s.free_rate)}</div></div>
+    </div>
+    <div class="panel routes" style="margin-top:12px">`;
+  rows.forEach(([k, v]) => {
+    h += `<div class="r"><b>${esc(k)}</b>
+      <div class="bar"><i style="width:${(v / max * 100).toFixed(1)}%;
+        background:var(--${ROUTE_COLOR[k] || 'accent'})"></i></div>
+      <span class="num">${v}件　${pct(v / n * 100)}</span></div>`;
+  });
+  h += `</div><p class="mini" style="margin-top:8px">
+    ここに出るのは<b>予約の経路</b>であって、アプリの登録率そのものではありません。
+    登録率はビューティーメリットの管理画面でご確認ください。</p></section>`;
+  return h;
+}
+
+/* ───────── 予測の答え合わせ ───────── */
+function backtestBlock() {
+  const bt = P.backtest;
+  if (!bt || !bt.rows.length) {
+    return `<div class="panel"><p class="mini" style="margin:0">
+      答え合わせに使える月がまだ足りません（集計の終わった月が3ヶ月ぶん必要です）。</p></div>`;
+  }
+  let h = `<div class="strip" style="margin-top:0">
+    <div><div class="k">検証できた月</div><div class="v">${bt.rows.length}<span style="font-size:.62em">ヶ月</span></div>
+      <div class="d">集計が終わった月のみ</div></div>
+    <div><div class="k">平均のずれ</div><div class="v">${bt.mae.toFixed(1)}%</div>
+      <div class="d">「順当」と実績の差</div></div>
+    <div><div class="k">幅に収まった割合</div><div class="v">${bt.hit.toFixed(0)}%</div>
+      <div class="d">悲観的〜上昇のあいだ</div></div>
+  </div>
+  <div class="tbl" style="margin-top:12px"><table><thead><tr>
+    <th>月</th><th>順当の予測</th><th>実績</th><th>ずれ</th><th>幅のなか</th></tr></thead><tbody>`;
+  bt.rows.forEach(r => {
+    h += `<tr><td>${Number(r.month.slice(5))}月</td><td>${yen(r.mid)}円</td>
+      <td>${yen(r.actual)}円</td>
+      <td class="${Math.abs(r.gap) <= 5 ? 'ok' : Math.abs(r.gap) >= 15 ? 'bad' : ''}">
+        ${(r.gap >= 0 ? '+' : '') + r.gap.toFixed(1)}%</td>
+      <td class="${r.inside ? 'ok' : 'bad'}">${r.inside ? '収まった' : '外れた'}</td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  const bias = bt.rows.reduce((a, r) => a + r.gap, 0) / bt.rows.length;
+  h += `<div class="note ${Math.abs(bias) >= 8 ? 'y' : ''}" style="margin-top:12px">
+    ${bias < -3 ? `予測は平均して <b>${Math.abs(bias).toFixed(1)}% 低め</b>に出ています。
+      実際はそれより伸びているので、目標は<b>強気に置いてよい</b>と読めます。`
+     : bias > 3 ? `予測は平均して <b>${bias.toFixed(1)}% 高め</b>に出ています。
+      届かない月が続くなら、目標の置き方を見直したほうがよさそうです。`
+     : `予測と実績の差は平均 <b>${Math.abs(bias).toFixed(1)}%</b> で、大きな偏りはありません。`}</div>
+  <p class="mini" style="margin-top:8px">
+    やり方：その月より<b>前の実績だけ</b>を使って予測を立て直し、実際の結果と比べています。
+    出勤日数はその月の実績を使い、<b>水準の当たり外れだけ</b>を見ています。</p>`;
+  return h;
+}
+
+/* ───────── 詳しく見る ───────── */
+/* 売れた商品と、売った人 */
+function goodsCross() {
+  const d = cur();
+  const people = [...d.stylists].sort((a, b) => b.goods - a.goods);
+  const tot = {};
+  people.forEach(p => (p.detail?.goods || []).forEach(([n, c]) => {
+    if (String(n).startsWith('その他 ')) return;
+    tot[n] = (tot[n] || 0) + c;
+  }));
+  const items = Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  if (!items.length) return '<p class="mini">この月は店販がありません。</p>';
+  const cnt = p => {
+    const m = {};
+    (p.detail?.goods || []).forEach(([n, c]) => { m[n] = c; });
+    return m;
+  };
+  const maps = people.map(cnt);
+  let h = `<div class="tbl"><table><thead><tr><th>商品</th><th>合計</th>` +
+    people.map(p => `<th>${esc(p.name.replace(/\s*[\[【].*$/, ''))}</th>`).join('') +
+    `</tr></thead><tbody>`;
+  items.forEach(([n, c]) => {
+    h += `<tr><td>${esc(n)}</td><td><b>${c}</b></td>` +
+      maps.map(m => `<td class="${m[n] ? '' : 'z'}">${m[n] || '—'}</td>`).join('') + `</tr>`;
+  });
+  h += `<tr class="total"><td>店販売上</td><td>${yen(cur().store.goods)}円</td>` +
+    people.map(p => `<td>${yen(p.goods)}円</td>`).join('') + `</tr></tbody></table></div>
+    <p class="mini" style="margin-top:8px">数字は<b>売れた点数</b>です。
+    横にスクロールできます。だれが何を売れているかを見て、売り方を横展開してください。</p>`;
+  return h;
+}
+
+/* 割引の効き目 */
+function discountBlock() {
+  const ms = P.months;
+  let h = `<p class="lede" style="padding-left:0">
+    割引をした分だけ、次回予約やリターンにつながっているかを見ます。
+    <b>割引率＝割引額 ÷ 総売上</b>です。</p>
+    <div class="tbl"><table><thead><tr><th>月</th><th>割引額</th><th>割引率</th>
+    <th>次回予約で来店</th><th>次回予約 取得率</th><th>リターン率</th><th>客単価</th>
+    </tr></thead><tbody>`;
+  ms.forEach(m => {
+    const x = P.data[m], s = x.store, f = s.rebook_made;
+    const dr = s.gross ? Math.abs(s.discount) / s.gross * 100 : 0;
+    h += `<tr><td>${Number(m.slice(5))}月${x.partial ? '（途中）' : ''}</td>
+      <td>${yen(Math.abs(s.discount))}円</td><td>${pct(dr)}</td>
+      <td>${s.rebook}件 ${pct(s.rebook_rate)}</td>
+      <td>${f && f.take_rate !== null ? pct(f.take_rate) : '—'}</td>
+      <td>${s.return ? pct(s.return.rate) : '—'}</td>
+      <td>${yen(s.avg)}円</td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  const d = cur();
+  h += `<h3 style="margin-top:22px">スタイリスト別（${Number(month.slice(5))}月）</h3>
+    <div class="tbl"><table><thead><tr><th>スタイリスト</th><th>割引額</th><th>割引率</th>
+    <th>次回予約 取得率</th><th>リターン率</th><th>客単価</th></tr></thead><tbody>` +
+    [...d.stylists].sort((a, b) => Math.abs(b.discount) - Math.abs(a.discount)).map(x => {
+      const dr = x.gross ? Math.abs(x.discount) / x.gross * 100 : 0;
+      const tk = x.rebook_made && x.rebook_made.take_rate !== null ? x.rebook_made.take_rate : null;
+      return `<tr><td>${esc(x.name)}</td><td>${yen(Math.abs(x.discount))}円</td><td>${pct(dr)}</td>
+        <td class="${tk === null ? '' : tk >= T.rebook_rate ? 'ok' : tk < 1 ? 'bad' : ''}">
+          ${tk === null ? '—' : pct(tk)}</td>
+        <td>${x.return ? pct(x.return.rate) : '—'}</td><td>${yen(x.avg)}円</td></tr>`;
+    }).join('') + `</tbody></table></div>
+    <div class="note" style="margin-top:12px">割引を増やしても次回予約やリターンが動いていなければ、
+    その割引は<b>値引きしただけ</b>になっています。逆に動いていれば、続ける根拠になります。</div>`;
+  return h;
+}
+
+/* 曜日ごと・時間帯ごと */
+let dowKey = 'per_day_customers';
+const DOW_NAME = ['月', '火', '水', '木', '金', '土', '日'];
+
+function dowBlock() {
+  const who = deepWho === 'store' ? cur().store : cur().stylists.find(v => v.name === deepWho);
+  const rows = (who && who.dow) || [];
+  if (!rows.length) return '<p class="mini">この月のデータがありません。</p>';
+  const fmt = dowKey === 'per_day_gross' ? (v => yen(v) + '円') : (v => v.toFixed(1) + '人');
+  const max = Math.max(...rows.map(r => r[dowKey]), 1);
+  let h = `<div class="switch">
+    <button type="button" class="dowtab" data-k="per_day_customers"
+      aria-selected="${dowKey === 'per_day_customers'}">1日あたり客数</button>
+    <button type="button" class="dowtab" data-k="per_day_gross"
+      aria-selected="${dowKey === 'per_day_gross'}">1日あたり総売上</button>
+  </div><div class="panel routes">`;
+  rows.forEach(r => {
+    const w = r.w;
+    h += `<div class="r"><b>${DOW_NAME[w]}曜</b>
+      <div class="bar"><i style="width:${(r[dowKey] / max * 100).toFixed(1)}%;
+        background:var(--${w === 5 ? 'blue' : w === 6 ? 'red' : 'accent'})"></i></div>
+      <span class="num">${fmt(r[dowKey])}　（${r.days}日・のべ${r.customers}人）${
+        r.days && r.days <= 2 ? '<b style="color:var(--caution)">　※参考</b>' : ''}</span></div>`;
+  });
+  const few = rows.filter(r => r.days && r.days <= 2).map(r => DOW_NAME[r.w] + '曜');
+  h += `</div><p class="mini" style="margin-top:8px">
+    その曜日が月に何日あったかで割った数字です。シフトの組み方や、
+    フリー予約をどの曜日に厚くするかの判断に使えます。</p>`;
+  if (few.length) {
+    h += `<div class="note y" style="margin-top:10px">
+      <b>${few.join('・')}</b>は、この月にまだ${rows.find(r => r.days && r.days <= 2).days}日ほどしかありません。
+      たまたまの数字になりやすいので、判断材料にするときはご注意ください。</div>`;
+  }
+  return h;
+}
+
+function hourBlock() {
+  const who = deepWho === 'store' ? cur().store : cur().stylists.find(v => v.name === deepWho);
+  const rows = (who && who.hour) || [];
+  if (!rows.length) return '<p class="mini">この月のデータがありません。</p>';
+  const max = Math.max(...rows.map(r => r.customers), 1);
+  const tot = rows.reduce((a, r) => a + r.customers, 0) || 1;
+  let h = `<div class="panel routes">`;
+  rows.forEach(r => {
+    h += `<div class="r"><b>${r.h}時台</b>
+      <div class="bar"><i style="width:${(r.customers / max * 100).toFixed(1)}%;
+        background:var(--${r.customers >= max * .8 ? 'orange' : 'teal'})"></i></div>
+      <span class="num">${r.customers}人　${pct(r.customers / tot * 100)}</span></div>`;
+  });
+  h += `</div><div class="note y" style="margin-top:12px">
+    これは<b>お会計をした時刻</b>です。来店時刻ではないので、実際の来店は
+    施術時間のぶん（およそ1〜2時間）早い時間帯になります。</div>`;
+  return h;
+}
+
+let deepWho = 'store';
+
+function renderDeep() {
+  let h = partial();
+  h += `<section><h2 class="c-green">売れた商品と、売った人</h2>
+    <p class="lede">${Number(month.slice(5))}月に売れた店販を、商品ごと・スタイリストごとに並べています。</p>
+    ${goodsCross()}</section>`;
+
+  h += `<section><h2 class="c-red">割引の効き目</h2>${discountBlock()}</section>`;
+
+  const who = [['store', '店舗全体'], ...cur().stylists.map(v => [v.name, v.name])];
+  if (!who.some(w => w[0] === deepWho)) deepWho = 'store';
+  const picker = `<div class="switch wrap" style="margin-bottom:12px">` +
+    who.map(([k, lab]) => `<button type="button" class="dwho" data-w="${esc(k)}"
+      aria-selected="${k === deepWho}">${esc(lab.replace(/\s*[\[【].*$/, ''))}</button>`).join('') +
+    `</div>`;
+
+  const whoName = deepWho === 'store' ? '店舗全体'
+    : deepWho.replace(/\s*[\[【].*$/, '') + 'さん';
+  h += `<section><h2 class="c-purple">曜日と時間帯</h2>
+    <p class="lede">見たい相手を選んでください。いま表示しているのは <b>${esc(whoName)}</b> です。</p>
+    ${picker}
+    <h3 style="margin-top:4px">曜日ごと</h3>${dowBlock()}
+    <h3 style="margin-top:24px">時間帯ごと</h3>${hourBlock()}</section>`;
+  return h;
+}
 
 /* ───────── AIに聞く ───────── */
 const CHAT = P.chat || null;
@@ -1023,6 +1321,45 @@ function chatContext() {
             x.return ? p(x.return.rate) : '—', p(x.treat_rate),
             tv ? n(tv.target) : '—', r !== null ? p(r) : '—'].join('｜'));
   });
+
+  // 記録が残っている全期間（AIが「去年の9月と比べて」に答えられるように）
+  const H = P.history && P.history.store;
+  if (H && P.history.months.length) {
+    L.push('');
+    L.push('■ 記録が残っている全期間（月：総売上／客数／客単価）');
+    P.history.months.forEach(m => {
+      const x = H[m];
+      L.push(`${m}：${n(x.gross)}／${c(x.customers)}／${n(x.avg)}`);
+    });
+    const ly = lastYear(month);
+    if (H[ly] && H[month]) {
+      const g = H[ly].gross ? (H[month].gross - H[ly].gross) / H[ly].gross * 100 : null;
+      L.push(`前年同月比（${ly}と比べて）総売上 ${g === null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'}` +
+        (d.partial ? '　※今月は集計途中なので、そのままでは比べられない' : ''));
+    }
+  }
+
+  // 曜日・時間帯
+  if (s.dow && s.dow.length) {
+    const nm = ['月', '火', '水', '木', '金', '土', '日'];
+    L.push('');
+    L.push('■ 曜日ごと（1日あたりの客数／1日あたり総売上／その曜日の営業日数）');
+    L.push('　※営業日数が2日以下の曜日は、たまたまの可能性が高い。断定しないこと。');
+    s.dow.forEach(r => L.push(`${nm[r.w]}曜：${r.per_day_customers.toFixed(1)}人／${n(r.per_day_gross)}／${r.days}日`));
+  }
+  if (s.hour && s.hour.length) {
+    L.push('');
+    L.push('■ 会計した時間帯（来店時刻ではなく会計時刻。実際の来店は1〜2時間前）');
+    L.push(s.hour.map(r => `${r.h}時台 ${r.customers}人`).join(' / '));
+  }
+
+  // 予測の当たり具合
+  if (P.backtest && P.backtest.rows.length) {
+    L.push('');
+    L.push(`■ 予測の答え合わせ：${P.backtest.rows.length}ヶ月を検証、平均のずれ ${P.backtest.mae.toFixed(1)}%`);
+    P.backtest.rows.forEach(r =>
+      L.push(`${Number(r.month.slice(5))}月：予測 ${n(r.mid)} → 実績 ${n(r.actual)}（${(r.gap >= 0 ? '+' : '') + r.gap.toFixed(1)}%）`));
+  }
 
   // 目安にしている水準
   L.push('');
@@ -1271,7 +1608,8 @@ function render() {
   document.getElementById('view').innerHTML =
     view === 'store' ? renderStore() : view === 'rank' ? renderRank()
     : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal()
-    : view === 'chat' ? renderChat() : view === 'trend' ? renderTrend() : renderPerson();
+    : view === 'chat' ? renderChat() : view === 'trend' ? renderTrend()
+    : view === 'deep' ? renderDeep() : renderPerson();
   if (scrollTop) { window.scrollTo({top: 0, behavior: 'instant'}); }
   scrollTop = false;
   buildSecTabs();
@@ -1284,6 +1622,10 @@ document.getElementById('view').addEventListener('click', ev => {
   if (cs) { chatSend(cs.dataset.q); return; }
   if (ev.target.closest('#csend')) { chatSend(); return; }
   if (ev.target.closest('#cclear')) { chatLog = []; render(); return; }
+  const dw = ev.target.closest('.dowtab');
+  if (dw) { dowKey = dw.dataset.k; render(); return; }
+  const dh = ev.target.closest('.dwho');
+  if (dh) { deepWho = dh.dataset.w; render(); return; }
   const st = ev.target.closest('.stab');
   if (st) { subTab[st.dataset.s] = st.dataset.k; render(); return; }
   const fw = ev.target.closest('.fwho');
@@ -1337,7 +1679,7 @@ document.getElementById('view').addEventListener('click', ev => {
 
 const VIEW_NAME = {store: '店舗全体', rank: 'スタイリスト比較', goal: '目標',
                    rebook: '次回予約', person: '個人カルテ',
-                   trend: '売上シミュレーション', chat: 'AIに聞く'};
+                   deep: '詳しく見る', trend: '売上シミュレーション', chat: 'AIに聞く'};
 const menu = document.getElementById('menu');
 const menuBg = document.getElementById('menubg');
 const menuBtn = document.getElementById('menubtn');
@@ -1372,6 +1714,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(fals
 document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () => {
   view = b.dataset.v; setMenu(false); scrollTop = true; render();
 }));
+const builtEl = document.getElementById('built');
+if (builtEl && P.built_at) {
+  builtEl.textContent = `この画面は ${P.built_at} 時点の数字です（1時間ごとに自動更新）。`;
+}
 selM.addEventListener('change', e => { month = e.target.value; render(); });
 selS.addEventListener('change', e => { person = e.target.value; render(); });
 render();

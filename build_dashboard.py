@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """分析結果を1枚のHTMLダッシュボードにする"""
-import calendar, json, os, sys
+import calendar, datetime, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import analyze, feedback
 
@@ -39,6 +39,7 @@ def build_payload():
                       "return": s.get("return"), "daily": s.get("daily", []),
                       "rebook_made": s.get("rebook_made"),
                       "detail": s.get("detail", {}),
+                      "dow": s.get("dow", []), "hour": s.get("hour", []),
                       "routes": s["routes"], "payments": s["payments"]},
             "top_goods": data[m]["top_goods"], "top_menus": data[m]["top_menus"],
             "store_feedback": feedback.store_feedback(s, prev["store"] if prev else None),
@@ -50,6 +51,7 @@ def build_payload():
             entry["stylists"].append({
                 "name": name, **{k: p[k] for k in KEYS}, "return": p.get("return"),
                 "routes": p["routes"], "daily": p.get("daily", []), "detail": p.get("detail", {}),
+                "dow": p.get("dow", []), "hour": p.get("hour", []),
                 "rebook_made": p.get("rebook_made"),
                 "feedback": feedback.stylist_feedback(p, s, pv),
             })
@@ -69,6 +71,9 @@ def build_payload():
         payload["data"][m]["target"] = tmp[m].get("target")
     payload["growth"] = analyze.GROWTH
     payload["history"] = analyze.load_history()
+    payload["backtest"] = analyze.build_backtest(tmp, months)
+    payload["built_at"] = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
     if CHAT_ON:
         payload["chat"] = {"url": CHAT_URL, "token": CHAT_TOKEN}
     return payload
@@ -92,6 +97,8 @@ def main():
             '<span>今月の売上目標と、達成までの残り</span></button>',
             '<button class="mitem" data-v="rebook"><b>次回予約</b>'
             '<span>取得率ランキングと、その後の来店</span></button>',
+            '<button class="mitem" data-v="deep"><b>詳しく見る</b>'
+            '<span>店販の中身・割引の効き目・曜日と時間帯</span></button>',
             '<button class="mitem" data-v="trend"><b>売上シミュレーション</b>'
             '<span>期間と項目を選んで、伸びかたを見る</span></button>',
             *(['<button class="mitem" data-v="chat"><b>AIに聞く</b>'
@@ -111,7 +118,8 @@ def main():
             '<div id="sectab" class="sectab" role="tablist" aria-label="ページ内の項目"></div>',
             '</div>',
             '<div id="view"></div>',
-            '<p class="foot">ビューティーメリットのデータをもとに自動作成しています。'
+            '<p class="foot"><b id="built"></b><br>'
+            'ビューティーメリットのデータをもとに自動作成しています。'
             '数値の最終確認は管理画面でお願いします。<br>'
             '売上・スタッフ個人の実績を含みます。共有範囲にご注意ください。<br>'
             '※これは一般的な情報です。実際の判断は、専門家（弁護士・税理士など）に必ずご確認ください。</p>',
