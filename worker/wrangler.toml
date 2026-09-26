@@ -14,9 +14,12 @@ binding = "AI"
 ALLOW_ORIGIN = "https://noma-atsuto.github.io"
 
 # 使うAIモデル。変えたいときはここだけ書き換えてください。
-#   @cf/google/gemma-4-26b-a4b-it   … 標準（安い・日本語まずまず）
-#   @cf/openai/gpt-oss-120b         … 賢いが消費が約3倍
-#   @cf/qwen/qwen3-30b-a3b-fp8      … いちばん安い
-MODEL = "@cf/google/gemma-4-26b-a4b-it"
+# （実際に同じ質問を投げて比べた結果）
+#   @cf/openai/gpt-oss-120b     … 標準。いちばん正確で速い。1日およそ108回
+#   @cf/openai/gpt-oss-20b      … 少し落ちるが安い。1日およそ227回
+#   @cf/qwen/qwen3-30b-a3b-fp8  … さらに安いが、数字を取り違えることがあった
+# ※ gemma-4 と glm-4.7-flash は答えが空で返ってきたため使えません。
+# ※ llama-3.1-8b は実在しない数字を作ったため使ってはいけません。
+MODEL = "@cf/openai/gpt-oss-120b"
 
 # CHAT_TOKEN（合言葉）は secret として別に登録します。ここには書きません。

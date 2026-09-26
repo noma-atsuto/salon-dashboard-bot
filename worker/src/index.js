@@ -9,12 +9,12 @@
  * ・決めたアドレス（ALLOW_ORIGIN）以外からは使えません
  */
 
-const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+const DEFAULT_MODEL = "@cf/openai/gpt-oss-120b";
 
 const MAX_Q = 600;        // 質問文の上限（文字）
 const MAX_CTX = 24000;    // 渡す数字データの上限（文字）
 const MAX_TURNS = 6;      // さかのぼって覚えておく会話の数
-const MAX_TOKENS = 800;   // 回答の長さの上限
+const MAX_TOKENS = 1500; // 回答の長さの上限（考えている途中の分も含むため多めにとる）
 
 const SYSTEM = `あなたは美容室「AI TOKYO men's 池袋」の店舗データを読み解くアシスタントです。
 読むのは店長やスタイリストで、ITやデータ分析に詳しくない人もいます。
@@ -24,6 +24,8 @@ const SYSTEM = `あなたは美容室「AI TOKYO men's 池袋」の店舗デー�
 - 答えは「渡されたデータ」だけを根拠にする。データにない数字を作らない。
 - データから読み取れないことを聞かれたら「このデータからは分かりません」と正直に言う。
 - 金額は「1,234,567円」のように3桁区切りで書く。割合は小数第1位まで。
+- データに書いてある割合（取得率・装着率・購入率など）は、そのまま引用する。
+  自分で計算し直さない。計算し直すと違う数字になり、画面の表示と食い違う。
 - 3〜6行程度か、箇条書き3〜5個にまとめる。前置きや挨拶はしない。
 - 数字を並べるだけで終わらせず、「だから何をすればいいか」を最後に一言そえる。
 - 集計途中の月は、途中であることを前提に話す。
@@ -94,9 +96,17 @@ export default {
         temperature: 0.3,
       });
 
-      let text = typeof out === "string" ? out : (out?.response ?? "");
-      // 一部のモデルが出す思考メモを取り除く
-      text = String(text).replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      // モデルによって返ってくる形が違うので、どちらでも拾えるようにする
+      let text = "";
+      if (typeof out === "string") {
+        text = out;
+      } else if (out && typeof out.response === "string") {
+        text = out.response;
+      } else if (out && Array.isArray(out.choices) && out.choices[0]) {
+        text = out.choices[0]?.message?.content ?? "";
+      }
+      // 考えている途中のメモが混ざることがあるので取り除く
+      text = String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
       if (!text) return json({ e: "うまく答えられませんでした。聞き方を変えてみてください。" }, 502, headers);
       return json({ a: text }, 200, headers);

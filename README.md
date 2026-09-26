@@ -15,7 +15,7 @@
 対象月はプルダウンで切り替えられます。
 
 「AIに聞く」の準備のしかたは [worker/README.md](worker/README.md) にまとめています。
-Cloudflare Workers AI を使っていて、無料枠のままで 1日およそ200回まで質問できます。
+Cloudflare Workers AI を使っていて、無料枠のままで 1日およそ100回まで質問できます。
 
 ## 使い方
 
