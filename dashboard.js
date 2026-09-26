@@ -501,6 +501,15 @@ function trendChart() {
 }
 
 
+function renderTrend() {
+  let h = partial();
+  h += `<section><h2 class="c-teal">売上シミュレーション</h2>
+    <p class="lede">これまでの実績の動きです。見たい相手・期間・項目を選べます。
+    この先の見通し（上昇・順当・悲観的）は「目標」の中にあります。</p>
+    <div class="panel">${trendChart()}</div></section>`;
+  return h;
+}
+
 function renderRebook() {
   const d = cur(), s = d.store, f = s.rebook_made;
   let h = partial();
@@ -589,9 +598,6 @@ function renderRank() {
     ['店販/客（全員平均）', x => yen(x.goods_per) + '円', x => x.goods_per >= T.goods_per ? 1 : (x.goods_per < s.goods_per * .6 ? -1 : 0)],
   ];
   let h = partial();
-  h += `<section><h2 class="c-teal">成長の推移</h2>
-    <p class="lede">見たい相手・期間・項目を選べます。</p>
-    <div class="panel">${trendChart()}</div></section>`;
   h += `<section><h2 class="c-blue">スタイリスト比較</h2>
     <p class="lede">緑は目標達成または店舗平均より良いところ、赤は伸びしろがあるところです。横にスクロールできます。<br>
     「出勤」は${s.workday_source === 'shift'
@@ -881,9 +887,6 @@ function renderPerson() {
         <i class="${prate >= 100 ? 'ok' : 'bad'}" style="width:${Math.min(100, prate).toFixed(1)}%"></i></div>` : ''}
     <div style="margin-top:14px">${chart('gross', false, '円')}</div>
     <p class="mini" style="margin-top:6px">棒をタップすると、その月に切り替わります。</p></div>`;
-  h += `<section><h2 class="c-teal">成長の推移</h2>
-    <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
-    <div class="panel">${growthBlock(x.name)}</div></section>`;
   h += `<div class="strip">
     <div><div class="k">総売上（割引前）</div><div class="v">${yen(x.gross)}</div><div class="d">${delta(x.gross, pv?.gross) || '円'}</div></div>
     <div><div class="k">純売上</div><div class="v">${yen(x.net)}</div><div class="d">割引 ${yen(x.gross - x.net)}円を差引</div></div>
@@ -892,6 +895,13 @@ function renderPerson() {
     <div><div class="k">客数</div><div class="v">${yen(x.customers)}</div><div class="d">${delta(x.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
   </div>`;
+  h += `<section><h2 class="c-teal">成長の推移</h2>
+    <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
+    <div class="panel">${growthBlock(x.name)}</div></section>`;
+  h += `<section><h2 class="c-teal">日ごとの売上</h2>
+    <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
+    <div class="panel">${dailyBlock(x.daily, 'dp')}</div></section>`;
+
   const tg = d.target && d.target.stylists[x.name];
   if (tg) {
     const r = tg.target ? tg.actual / tg.target * 100 : 0;
@@ -906,24 +916,6 @@ function renderPerson() {
           style="width:${Math.min(100, r).toFixed(1)}%"></i></div>
       </div></div></section>`;
   }
-
-  h += `<section><h2>次回予約</h2>
-    <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
-    ${rebookBlock(x, s)}</section>`;
-
-  h += `<section><h2 class="c-teal">日ごとの売上</h2>
-    <p class="lede">「一覧」を押すと、日にちごとの表になります。</p>
-    <div class="panel">${dailyBlock(x.daily, 'dp')}</div></section>`;
-
-  h += `<section><h2 class="c-orange">売上の内訳</h2>
-    <p class="lede">「細かく」を押すと、中身まで見られます。</p>
-    <div class="switch">
-      <button type="button" class="dtab" data-t="bp" data-v="chart" aria-selected="true">ざっくり</button>
-      <button type="button" class="dtab" data-t="bp" data-v="list" aria-selected="false">細かく</button>
-    </div>
-    <div id="bp-chart">${breakdown(x)}</div>
-    <div id="bp-list" hidden><div class="panel">${breakdownDetail(x, 'bp')}</div></div>
-    </section>`;
 
   h += `<section><h2>目標に対して</h2><p class="lede">かっこ内は店舗全体の数字です。</p><div class="panel goal">
     ${goal(`次回予約率（店舗 ${pct(s.rebook_rate)}）`, x.rebook_rate, T.rebook_rate, pct)}
@@ -940,6 +932,22 @@ function renderPerson() {
   if (f.issues.length) h += `<h3>伸びしろ</h3>` + notes(f.issues, 'r');
   if (f.actions.length) h += `<h3>次の一手</h3>` + notes(f.actions, 'y');
   h += `</div></section>`;
+
+  h += `<section><h2>次回予約</h2>
+    <p class="lede">初回来店のお客様から取れた次回予約を、取った月ごとに追いかけています。</p>
+    ${rebookBlock(x, s)}</section>`;
+
+  h += `<section><h2 class="c-orange">売上の内訳</h2>
+    <p class="lede">「細かく」を押すと、中身まで見られます。</p>
+    <div class="switch">
+      <button type="button" class="dtab" data-t="bp" data-v="chart" aria-selected="true">ざっくり</button>
+      <button type="button" class="dtab" data-t="bp" data-v="list" aria-selected="false">細かく</button>
+    </div>
+    <div id="bp-chart">${breakdown(x)}</div>
+    <div id="bp-list" hidden><div class="panel">${breakdownDetail(x, 'bp')}</div></div>
+    </section>`;
+
+
   return h;
 }
 
@@ -1263,7 +1271,7 @@ function render() {
   document.getElementById('view').innerHTML =
     view === 'store' ? renderStore() : view === 'rank' ? renderRank()
     : view === 'rebook' ? renderRebook() : view === 'goal' ? renderGoal()
-    : view === 'chat' ? renderChat() : renderPerson();
+    : view === 'chat' ? renderChat() : view === 'trend' ? renderTrend() : renderPerson();
   if (scrollTop) { window.scrollTo({top: 0, behavior: 'instant'}); }
   scrollTop = false;
   buildSecTabs();
@@ -1328,7 +1336,8 @@ document.getElementById('view').addEventListener('click', ev => {
 });
 
 const VIEW_NAME = {store: '店舗全体', rank: 'スタイリスト比較', goal: '目標',
-                   rebook: '次回予約', person: '個人カルテ', chat: 'AIに聞く'};
+                   rebook: '次回予約', person: '個人カルテ',
+                   trend: '売上シミュレーション', chat: 'AIに聞く'};
 const menu = document.getElementById('menu');
 const menuBg = document.getElementById('menubg');
 const menuBtn = document.getElementById('menubtn');
