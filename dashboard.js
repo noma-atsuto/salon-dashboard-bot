@@ -1732,6 +1732,95 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(fals
 document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () => {
   view = b.dataset.v; setMenu(false); scrollTop = true; render();
 }));
+/* ───────── 下に引っ張って更新 ─────────
+   ホーム画面に追加して使うとアドレス欄が出ないため、読み込み直す手段がない。
+   いちばん上で下に引くと、最新のページを取り直す。            */
+(function () {
+  const bar = document.createElement('div');
+  bar.id = 'ptr';
+  bar.innerHTML = '<i></i><span>下に引いて更新</span>';
+  bar.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(bar);
+  const label = bar.querySelector('span');
+
+  const MAX = 96, TRIG = 62;
+  let y0 = null, pulling = false, dist = 0, busy = false;
+
+  const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+
+  // 中で縦にスクロールしている場所（チャットの履歴など）から始めたときは何もしない
+  function inVScroller(el) {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (n.nodeType !== 1) continue;
+      if (n.scrollHeight - n.clientHeight > 4 && n.scrollTop > 0) {
+        const oy = getComputedStyle(n).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return true;
+      }
+    }
+    return false;
+  }
+
+  function show(d) {
+    dist = d;
+    bar.style.transform = `translateY(${d}px)`;
+    bar.style.opacity = String(Math.min(1, d / 34));
+    const ready = d >= TRIG;
+    bar.classList.toggle('ready', ready);
+    label.textContent = ready ? '離すと更新します' : '下に引いて更新';
+  }
+
+  function hide() {
+    bar.style.transition = 'transform .22s ease, opacity .22s ease';
+    bar.style.transform = 'translateY(0)';
+    bar.style.opacity = '0';
+    setTimeout(() => { bar.style.transition = ''; bar.classList.remove('ready'); }, 240);
+  }
+
+  async function refresh() {
+    busy = true;
+    bar.classList.add('loading');
+    bar.classList.remove('ready');
+    bar.style.transform = `translateY(${TRIG}px)`;
+    bar.style.opacity = '1';
+    label.textContent = '更新しています…';
+    // 10分間ブラウザが覚えてしまうので、取り直してから読み込み直す
+    try {
+      await fetch(location.pathname + location.search, {cache: 'reload'});
+    } catch (e) { /* 電波がなくても、そのまま読み込み直しを試す */ }
+    location.reload();
+  }
+
+  document.addEventListener('touchstart', e => {
+    if (busy || e.touches.length !== 1 || !atTop() || menuOpen()
+        || inVScroller(e.target)) { y0 = null; return; }
+    y0 = e.touches[0].clientY;
+    pulling = false;
+    dist = 0;
+  }, {passive: true});
+
+  document.addEventListener('touchmove', e => {
+    if (y0 === null || busy) return;
+    const dy = e.touches[0].clientY - y0;
+    if (dy <= 0) {                      // 上に戻したら引っ込める
+      if (pulling) { pulling = false; hide(); }
+      y0 = null;
+      return;
+    }
+    if (!atTop()) { y0 = null; return; }
+    pulling = true;
+    show(Math.min(MAX, dy * 0.5));      // 指の動きより少し遅らせて、引っ張っている感じを出す
+  }, {passive: true});
+
+  function end() {
+    if (y0 === null) return;
+    const go = pulling && dist >= TRIG;
+    y0 = null; pulling = false;
+    if (go) refresh(); else hide();
+  }
+  document.addEventListener('touchend', end, {passive: true});
+  document.addEventListener('touchcancel', end, {passive: true});
+})();
+
 const builtEl = document.getElementById('built');
 if (builtEl && P.built_at) {
   builtEl.textContent = `この画面は ${P.built_at} 時点の数字です（1時間ごとに自動更新）。`;

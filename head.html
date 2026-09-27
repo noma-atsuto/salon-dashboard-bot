@@ -292,5 +292,19 @@ svg.chart rect.mbar:hover~rect,svg.chart rect.mbar:hover{opacity:.85}
 table td.z{color:var(--ink3)}
 .foot #built{display:block;color:var(--ink2);font-weight:600;margin-bottom:5px}
 .switch.wrap button{flex:none}
+/* 下に引っ張って更新 */
+#ptr{position:fixed;left:0;right:0;top:0;z-index:60;height:52px;margin-top:-52px;
+  display:flex;align-items:center;justify-content:center;gap:9px;pointer-events:none;
+  opacity:0;color:var(--ink2);font-size:12.5px;font-weight:600;
+  background:linear-gradient(var(--paper) 70%,transparent);
+  padding-top:env(safe-area-inset-top,0px)}
+#ptr i{width:15px;height:15px;border-radius:50%;display:block;
+  border:2px solid var(--line);border-top-color:var(--ink3);
+  transition:transform .2s ease,border-top-color .2s ease}
+#ptr.ready i{border-top-color:var(--good);transform:rotate(180deg)}
+#ptr.ready{color:var(--good)}
+#ptr.loading i{border-top-color:var(--accent);animation:ptrspin .7s linear infinite}
+#ptr.loading{color:var(--ink2)}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
