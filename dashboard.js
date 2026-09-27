@@ -1819,6 +1819,14 @@ document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () 
   }
   document.addEventListener('touchend', end, {passive: true});
   document.addEventListener('touchcancel', end, {passive: true});
+
+  // 右上のボタンからも同じことができる（パソコンや、引っ張りにくいときのため）
+  const rbtn = document.getElementById('reloadbtn');
+  if (rbtn) rbtn.addEventListener('click', () => {
+    if (busy) return;
+    rbtn.classList.add('spin');
+    refresh();
+  });
 })();
 
 const builtEl = document.getElementById('built');

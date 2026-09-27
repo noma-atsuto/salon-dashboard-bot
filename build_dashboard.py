@@ -112,6 +112,11 @@ def main():
             '<span class="bars"><i></i><i></i><i></i></span></button>',
             '<div class="titles"><p class="brand">AI TOKYO men\'s 池袋</p>'
             '<h1 id="vtitle">店舗全体</h1></div>',
+            '<button id="reloadbtn" type="button" aria-label="最新の情報に更新">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" '
+            'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"></path>'
+            '<path d="M20.5 4.2v4.6h-4.6"></path></svg></button>',
             '</div>',
             '<div class="ctrl"><select id="m" aria-label="対象月"></select>',
             '<span id="ls" hidden></span><select id="s" aria-label="スタイリスト" hidden></select></div>',
