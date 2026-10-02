@@ -473,6 +473,11 @@ def seasonal_index():
     if not os.path.exists(path):
         return {}, {}
     h = pd.read_csv(path)
+    # 集計の途中の月（今月）は、日数が足りないぶん客数が少なく出る。
+    # 混ぜると その月の季節指数が大きく下振れするので、外して計算する。
+    this_month = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m")
+    h = h[h["年月"].astype(str) != this_month]
     h = h[(h["稼働"] > 0) & (h["客数"] > 0)].copy()
     if len(h) < 6:
         return {}, {}
