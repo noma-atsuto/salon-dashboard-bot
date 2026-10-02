@@ -72,8 +72,9 @@ def build_payload():
     payload["growth"] = analyze.GROWTH
     payload["history"] = analyze.load_history()
     payload["backtest"] = analyze.build_backtest(tmp, months)
-    payload["built_at"] = datetime.datetime.now(
-        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    payload["built_at"] = now.strftime("%Y-%m-%d %H:%M")
+    payload["built_ts"] = int(now.timestamp() * 1000)   # 古くなっていないかの判定用
     if CHAT_ON:
         payload["chat"] = {"url": CHAT_URL, "token": CHAT_TOKEN}
     return payload

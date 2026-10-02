@@ -7,6 +7,7 @@
     商品  … 店販
     その他 … 指名料・利用ポイント
 """
+import calendar
 import collections, datetime, glob, os, re
 import pandas as pd
 
@@ -408,12 +409,18 @@ def build():
         store["return"] = _return_rate(df, mo, idx)
         store["rebook_made"] = _with_rate(rebook_funnel(rb, mo), store["first_visits"])
         store["end"] = str(d["来店日"].max().date())
+        # 客数が少なすぎる人は一覧に出さない。ただし月の途中は、まだ誰も
+        # 人数が溜まっていないので、経過した日数に合わせて基準を下げる
+        # （下げないと月初に「スタイリストが0人」になり、目標が作れなくなる）
+        last_day = calendar.monthrange(int(mo[:4]), int(mo[5:7]))[1]
+        done_day = int(str(store["end"])[8:10])
+        min_cust = max(2, round(20 * done_day / last_day))
         people = {}
         for name, g in d.groupby("施術担当者"):
             if not name or name in EXCLUDE:
                 continue
             p = _metrics(g, first_days=firsts)
-            if p["customers"] < 20:
+            if p["customers"] < min_cust:
                 continue
             p["return"] = _return_rate(df, mo, idx, name)
             p["rebook_made"] = _with_rate(rebook_funnel(rb, mo, name), p["first_visits"])
@@ -522,6 +529,8 @@ def build_targets(out, sh, months):
                 share.append(tot / sub)
         ratio = sum(share) / len(share) if share else 1.0
         store_goal = total * ratio
+        if store_goal <= 0:
+            continue        # 材料がそろっていない月は、目標を出さない
         floored = False
         if STORE_FLOOR and store_goal < STORE_FLOOR:
             # 下限に届かない月は、全員の目標を同じ割合で引き上げる

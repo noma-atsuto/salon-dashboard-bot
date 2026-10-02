@@ -1831,7 +1831,17 @@ document.querySelectorAll('.mitem').forEach(b => b.addEventListener('click', () 
 
 const builtEl = document.getElementById('built');
 if (builtEl && P.built_at) {
-  builtEl.textContent = `この画面は ${P.built_at} 時点の数字です（1時間ごとに自動更新）。`;
+  // 1時間ごとに自動更新しているので、何時間も古いままなら仕組みが止まっている
+  const hours = P.built_ts ? (Date.now() - P.built_ts) / 3600000 : 0;
+  if (hours >= 6) {
+    const d = hours >= 48 ? Math.round(hours / 24) + '日' : Math.round(hours) + '時間';
+    builtEl.className = 'stale';
+    builtEl.innerHTML = `⚠️ この画面は ${P.built_at} 時点の数字で、${d}ほど更新が止まっています。`
+      + `<br>右上の更新ボタンを押しても変わらない場合は、取り込みの仕組みが止まっている可能性があります。`;
+  } else {
+    builtEl.className = '';
+    builtEl.textContent = `この画面は ${P.built_at} 時点の数字です（1時間ごとに自動更新）。`;
+  }
 }
 selM.addEventListener('change', e => { month = e.target.value; render(); });
 selS.addEventListener('change', e => { person = e.target.value; render(); });
