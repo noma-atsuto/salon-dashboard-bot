@@ -451,7 +451,9 @@ BASIS = "avg"             # "avg"＝直近の平均を基準 / "best"＝いち�
 GROWTH = 1.05
 LOOKBACK = 6              # さかのぼる月数（集計が終わった月のみ）
 SINCE = "2026-05"         # この月以降の実績だけを参照する（体制が変わった時期）
-STORE_FLOOR = 10_500_000  # 店舗の月間目標のボーダー。下回る月はここまで引き上げる
+# 店舗の月間目標は「ベース × その月の季節指数」で決める。
+# 個人の目標は、直近の実績と出勤日数の比で、この金額を分け合う形になる。
+STORE_BASE = 11_000_000   # 目標のベース（平年並みの月の金額）
 
 # 出勤日数を決め打ちするスタイリスト。シフトの登録日数ではなく、ここの日数で
 # 目標と予測を組む。集計が終わった過去の月には影響しない（当月から先だけ）。
@@ -539,21 +541,19 @@ def build_targets(out, sh, months):
             if sub:
                 share.append(tot / sub)
         ratio = sum(share) / len(share) if share else 1.0
-        store_goal = total * ratio
-        if store_goal <= 0:
+        stacked = total * ratio          # 実績の積み上げ（配分の比率に使う）
+        if stacked <= 0:
             continue        # 材料がそろっていない月は、目標を出さない
-        floored = False
-        if STORE_FLOOR and store_goal < STORE_FLOOR:
-            # 下限に届かない月は、全員の目標を同じ割合で引き上げる
-            scale = STORE_FLOOR / store_goal
-            for v in people.values():
-                v["target"] *= scale
-                v["base_per_day"] *= scale
-            store_goal = STORE_FLOOR
-            floored = True
+        # 店舗の目標 ＝ ベース × その月の季節指数。
+        # 個人の目標は、積み上げとの比で同じ割合に伸び縮みさせる。
+        store_goal = STORE_BASE * sfac(mo)
+        scale = store_goal / stacked
+        for v in people.values():
+            v["target"] *= scale
+            v["base_per_day"] *= scale
         entry["target"] = {
-            "store": store_goal, "store_days": planned_store, "floored": floored,
-            "floor": STORE_FLOOR,
+            "store": store_goal, "store_days": planned_store,
+            "base": STORE_BASE, "stacked": stacked, "scale": scale,
             "stylists": people, "growth": GROWTH, "months_used": len(past),
             "based_on": past, "season": sfac(mo),
             "season_table": {str(k): v for k, v in sorted(season.items())},
