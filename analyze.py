@@ -453,6 +453,12 @@ LOOKBACK = 6              # さかのぼる月数（集計が終わった月の�
 SINCE = "2026-05"         # この月以降の実績だけを参照する（体制が変わった時期）
 STORE_FLOOR = 10_500_000  # 店舗の月間目標のボーダー。下回る月はここまで引き上げる
 
+# 出勤日数を決め打ちするスタイリスト。シフトの登録日数ではなく、ここの日数で
+# 目標と予測を組む。集計が終わった過去の月には影響しない（当月から先だけ）。
+FIXED_DAYS = {
+    "野間 淳人 [池袋]": 20,
+}
+
 
 def seasonal_index():
     """月ごとの忙しさの指数（1.00が平年並み）。
@@ -514,10 +520,15 @@ def build_targets(out, sh, months):
             best_m, best = max(vals, key=lambda kv: kv[1])
             avg = sum(v for _, v in vals) / len(vals)
             days = shift_days_planned(sh, mo, name) or p["workdays"]
+            # 集計が終わった月の目標は動かさない（過去の達成率が変わってしまうため）
+            fixed = entry.get("partial") and name in FIXED_DAYS
+            if fixed:
+                days = FIXED_DAYS[name]
             base = (best if BASIS == "best" else avg)
             goal = base * GROWTH * days
             people[name] = {"base_per_day": base, "avg_per_day": avg, "best_month": best_m,
-                            "days": days, "target": goal, "actual": p["gross"],
+                            "days": days, "days_fixed": bool(fixed),
+                            "target": goal, "actual": p["gross"],
                             "months_used": len(vals)}
             total += goal
         # 店舗目標：スタイリストの合計に、フリー枠など一覧外の分を過去比で足す
@@ -629,7 +640,8 @@ def build_forecast(out, sh, months):
             continue
         people[name] = {
             "mid": sum(vals) / len(vals), "high": max(vals), "low": min(vals),
-            "days": round(sum(days) / len(days)) if days else 0,
+            "days": FIXED_DAYS.get(name,
+                       round(sum(days) / len(days)) if days else 0),
             "net_ratio": (sum(ratios) / len(ratios)) if ratios else 1.0,
         }
     if not people:
@@ -673,6 +685,8 @@ def build_forecast(out, sh, months):
         return out_s
 
     def days_of(name, m):
+        if name in FIXED_DAYS:        # 決め打ちの人は、シフトより こちらを優先する
+            return FIXED_DAYS[name]
         w = shift_days_planned(sh, m, name)
         return w if w else people[name]["days"]
 

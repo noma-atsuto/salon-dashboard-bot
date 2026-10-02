@@ -752,7 +752,9 @@ function renderGoal() {
     Object.entries(t.stylists).sort((a, b) => b[1].target - a[1].target).map(([n, v]) => {
       const r = v.target ? v.actual / v.target * 100 : 0;
       const rest = Math.max(0, v.target - v.actual);
-      return `<tr><td>${esc(n)}</td><td>${v.days}日</td><td>${yen(v.base_per_day)}円</td>
+      return `<tr><td>${esc(n)}</td>
+        <td>${v.days}日${v.days_fixed ? '<span class="wd">※固定</span>' : ''}</td>
+        <td>${yen(v.base_per_day)}円</td>
         <td>${Number(v.best_month.slice(5))}月</td>
         <td>${yen(v.target)}円</td><td>${yen(v.actual)}円</td>
         <td class="${r >= 100 ? 'ok' : r < 80 ? 'bad' : ''}">${pct(r)}</td>
@@ -761,7 +763,14 @@ function renderGoal() {
     `<tr class="total"><td>店舗全体</td><td>${planDays}日</td><td>—</td><td>—</td>
       <td>${yen(t.store)}円</td><td>${yen(act)}円</td>
       <td class="${rate >= 100 ? 'ok' : rate < 80 ? 'bad' : ''}">${pct(rate)}</td>
-      <td>${left > 0 ? yen(left) + '円' : '—'}</td></tr></tbody></table></div></section>`;
+      <td>${left > 0 ? yen(left) + '円' : '—'}</td></tr></tbody></table></div>` +
+    (Object.values(t.stylists).some(v => v.days_fixed)
+      ? `<div class="note" style="margin-top:12px"><b>※固定</b>がついている方は、
+          シフトの登録日数ではなく<b>決めた日数</b>で目標を組んでいます
+          （${Object.entries(t.stylists).filter(([, v]) => v.days_fixed)
+              .map(([n, v]) => esc(n) + ' ' + v.days + '日').join('・')}）。
+          集計が終わった過去の月の目標は、これまでどおりのままです。</div>` : '') +
+    `</section>`;
 
   h += `<section><h2 class="c-green">達成率の推移</h2><div class="panel routes">` +
     P.months.map(m => {
@@ -932,7 +941,8 @@ function renderPerson() {
     const r = tg.target ? tg.actual / tg.target * 100 : 0;
     const rest = Math.max(0, tg.target - tg.actual);
     h += `<section><h2>${Number(month.slice(5))}月の目標</h2>
-      <p class="lede">出勤${tg.days}日 × 1日あたり ${yen(tg.base_per_day)}円（${Number(tg.best_month.slice(5))}月に出した水準）。
+      <p class="lede">出勤${tg.days}日${tg.days_fixed ? '（決めた日数で計算しています）' : ''}
+      × 1日あたり ${yen(tg.base_per_day)}円（${Number(tg.best_month.slice(5))}月に出した水準）。
       いずれも総売上です。</p>
       <div class="panel goal"><div class="g">
         <span class="n">総売上</span><span class="val">${yen(tg.actual)}円</span>
