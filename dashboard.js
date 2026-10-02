@@ -811,7 +811,14 @@ function renderGoal() {
             background:var(--${v >= 1.08 ? 'orange' : v <= 0.93 ? 'blue' : 'line'})"></i></div>
           <span class="num">${v.toFixed(2)}　${tag}　${sy[String(m)] || 0}年分</span></div>`;
       }).join('') + `</div>
-      <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。</p>`;
+      <p class="mini" style="margin-top:10px">1〜5月と10〜12月は1年分のデータしかないため、まだ目安です。</p>
+      ${t.season_strength !== undefined && t.season_strength !== 1 ? `<div class="note y" style="margin-top:12px">
+        目標には、この指数を<b>${(t.season_strength * 100).toFixed(0)}%の強さ</b>に弱めて使っています
+        （${Number(month.slice(5))}月なら ${(t.season_table[String(Number(month.slice(5)))] ?? 1).toFixed(2)}
+        → <b>${t.season.toFixed(2)}</b>）。<br>
+        2026年5月の新体制のあと、全員が顧客獲得に取り組んだことで手持ちの既存のお客様が増え、
+        季節に左右されにくくなっているためです。実際、去年と今年の同じ月を比べると、
+        平年からのズレは 7月 6.5%→1.7%／8月 6.9%→0.1%／9月 16.2%→8.8% と小さくなっています。</div>` : ''}`;
   }
 
   h += subBlock('goal', [

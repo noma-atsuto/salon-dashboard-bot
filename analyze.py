@@ -455,6 +455,14 @@ SINCE = "2026-05"         # この月以降の実績だけを参照する（体�
 # 個人の目標は、直近の実績と出勤日数の比で、この金額を分け合う形になる。
 STORE_BASE = 11_000_000   # 目標のベース（平年並みの月の金額）
 
+# 季節の効き目をどれくらい反映するか。1.0 でそのまま、0.5 で半分。
+#
+# 2026年5月の新体制以降、全員が顧客獲得にコミットして手持ちの既存顧客が増え、
+# 季節に左右されにくくなった。実際、同じ月の去年と今年を比べると、平年からの
+# ズレが 7月 6.5%→1.7% / 8月 6.9%→0.1% / 9月 16.2%→8.8% と小さくなっている。
+# 季節指数は旧体制の月も含めて作っているため、そのままだと効かせすぎになる。
+SEASON_STRENGTH = 0.5
+
 # 出勤日数を決め打ちするスタイリスト。シフトの登録日数ではなく、ここの日数で
 # 目標と予測を組む。集計が終わった過去の月には影響しない（当月から先だけ）。
 FIXED_DAYS = {
@@ -506,7 +514,7 @@ def _fit(xs, ys):
 def build_targets(out, sh, months):
     """月ごとに、店舗とスタイリストの売上目標をつくる"""
     season, season_n = seasonal_index()
-    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
+    sfac = lambda ym: 1 + (season.get(int(ym[5:7]), 1.0) - 1) * SEASON_STRENGTH
     for i, mo in enumerate(months):
         past = [m for m in months[:i]
                 if not out[m]["partial"] and (not SINCE or m >= SINCE)][-LOOKBACK:]
@@ -563,6 +571,7 @@ def build_targets(out, sh, months):
             "based_on": past, "season": sfac(mo),
             "season_table": {str(k): v for k, v in sorted(season.items())},
             "season_years": {str(k): v for k, v in sorted(season_n.items())},
+            "season_strength": SEASON_STRENGTH,
         }
 
 
@@ -576,7 +585,7 @@ def build_backtest(out, months):
     水準の当たり外れだけを見たいので、出勤日数はその月の実績をそのまま使う。
     """
     season, _ = seasonal_index()
-    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
+    sfac = lambda ym: 1 + (season.get(int(ym[5:7]), 1.0) - 1) * SEASON_STRENGTH
     done = [m for m in months
             if not out[m]["partial"] and (not SINCE or m >= SINCE)
             and out[m]["store"].get("workdays")]
@@ -623,7 +632,7 @@ def build_forecast(out, sh, months):
     いずれも季節（繁忙期・閑散期）と、その月の出勤日数を反映する。
     """
     season, _ = seasonal_index()
-    sfac = lambda ym: season.get(int(ym[5:7]), 1.0)
+    sfac = lambda ym: 1 + (season.get(int(ym[5:7]), 1.0) - 1) * SEASON_STRENGTH
     base_months = [m for m in months if not out[m]["partial"] and (not SINCE or m >= SINCE)]
     if not base_months:
         return None
