@@ -248,18 +248,22 @@ function partial() {
   const d = cur();
   if (!d.partial) return '';
   return `<section><div class="note r"><b>この月はまだ集計の途中です。</b>
-    ${Number(month.slice(5))}月1日〜${Number(d.end.slice(8))}日までの数字なので、前月比は参考としてご覧ください。</div></section>`;
+    ${Number(month.slice(5))}月1日〜${Number(d.end.slice(8))}日までの数字です。
+    前月との比較は、<b>前月も同じ${Number(d.end.slice(8))}日まで</b>に切りそろえて出しています。</div></section>`;
 }
 
 function renderStore() {
-  const d = cur(), s = d.store, pv = prev()?.store;
+  const d = cur(), s = d.store;
+  const upto = Number(d.end.slice(8));
+  const pv = prevBase(prev()?.store, d.partial, upto);
   let h = partial();
   const tg = d.target;
   const rate = tg && tg.store ? s.gross / tg.store * 100 : null;
   const rest = tg && tg.store ? Math.max(0, tg.store - s.gross) : 0;
   h += `<div class="hero"><div class="lab">総売上</div>
     <div class="big">${yen(s.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">純売上 ${yen(s.net)}円　${delta(s.gross, pv?.gross) || ''}　稼働 ${s.headcount}名</div>
+    ${lastMonthLine(s.gross, pv, d.partial, upto)}
+    <div class="sub">純売上 ${yen(s.net)}円　稼働 ${s.headcount}名</div>
     ${tg && tg.store ? `<div class="goalline ${rate >= 100 ? 'hit' : 'miss'}">
       <span>月間目標 <span class="amt">${yen(tg.store)}円</span></span><b>${pct(rate)}</b>
       <span>${rest > 0 ? 'あと ' + yen(rest) + '円' : '達成しました'}</span></div>
@@ -274,7 +278,7 @@ function renderStore() {
     <div><div class="k">店販売上</div><div class="v">${yen(s.goods)}</div><div class="d">${delta(s.goods, pv?.goods) || '円'}</div></div>
     <div><div class="k">客数</div><div class="v">${yen(s.customers)}</div><div class="d">${delta(s.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規／再来</div><div class="v">${s.new}／${s.repeat}</div><div class="d">再来率 ${pct(s.repeat_rate)}</div></div>
-  </div>`;
+  </div>` + `${d.partial && pv && pv.sameDay ? `<p class="mini" style="margin-top:8px">「前月比」は、前月の<b>同じ${upto}日まで</b>と比べた数字です。月まるごとではないので、月の途中でも正しく比べられます。</p>` : ''}`;
 
   h += yoyBlock();
 
@@ -915,7 +919,9 @@ function paceNote(x, tg, isPartial) {
 function renderPerson() {
   const d = cur(), s = d.store, x = d.stylists.find(v => v.name === person);
   if (!x) return '<section><div class="panel">この月のデータがありません。</div></section>';
-  const pv = prev()?.stylists.find(v => v.name === person), f = x.feedback;
+  const upto = Number(d.end.slice(8));
+  const pv = prevBase(prev()?.stylists.find(v => v.name === person), d.partial, upto);
+  const f = x.feedback;
   let h = partial();
   h += `<section><div class="who"><h2>${esc(x.name)}</h2>
     ${f.tag ? `<span class="tag">${esc(f.tag)}</span>` : ''}</div></section>`;
@@ -923,7 +929,8 @@ function renderPerson() {
   const prate = ptg && ptg.target ? x.gross / ptg.target * 100 : null;
   h += `<div class="hero"><div class="lab">総売上</div>
     <div class="big">${yen(x.gross)}<span style="font-size:.5em;font-weight:600"> 円</span></div>
-    <div class="sub">純売上 ${yen(x.net)}円　${delta(x.gross, pv?.gross) || ''}　担当 ${x.customers}人</div>
+    ${lastMonthLine(x.gross, pv, d.partial, upto)}
+    <div class="sub">純売上 ${yen(x.net)}円　担当 ${x.customers}人</div>
     ${ptg ? `<div class="goalline ${prate >= 100 ? 'hit' : 'miss'}">
       <span>月間目標 <span class="amt">${yen(ptg.target)}円</span></span><b>${pct(prate)}</b>
       <span>${x.gross >= ptg.target ? '達成しました' : 'あと ' + yen(ptg.target - x.gross) + '円'}</span></div>
@@ -938,7 +945,7 @@ function renderPerson() {
     <div><div class="k">店販売上</div><div class="v">${yen(x.goods)}</div><div class="d">${x.goods_buyers}人が購入・平均${yen(x.goods_per_buyer)}円</div></div>
     <div><div class="k">客数</div><div class="v">${yen(x.customers)}</div><div class="d">${delta(x.customers, pv?.customers) || '人'}</div></div>
     <div><div class="k">新規率／指名率</div><div class="v">${pct(x.new_rate)}／${pct(x.nom_rate)}</div><div class="d">店舗 新規 ${pct(s.new_rate)}</div></div>
-  </div>`;
+  </div>` + `${d.partial && pv && pv.sameDay ? `<p class="mini" style="margin-top:8px">「前月比」は、前月の<b>同じ${upto}日まで</b>と比べた数字です。月まるごとではないので、月の途中でも正しく比べられます。</p>` : ''}`;
   h += `<section><h2 class="c-teal">成長の推移</h2>
     <p class="lede">${esc(x.name)}さんの月ごとの動きです。</p>
     <div class="panel">${growthBlock(x.name)}</div></section>`;
@@ -996,6 +1003,40 @@ function renderPerson() {
   return h;
 }
 
+
+/* ───────── 前月の「同じ日まで」と比べる ─────────
+   月の途中に、前月まるごとと比べると当然マイナスになる。
+   同じ日数ぶんで比べれば、進み具合が分かる。            */
+const DAILY_COL = {gross: 1, net: 2, customers: 3, goods: 4};
+
+function upToDay(daily, upto, key) {
+  const i = DAILY_COL[key];
+  return (daily || []).reduce((a, r) => a + (r[0] <= upto ? (r[i] || 0) : 0), 0);
+}
+
+// 前月の数字を「同じ日まで」に切りそろえる（集計が終わった月はそのまま）
+function prevBase(pvx, partial, upto) {
+  if (!partial || !pvx || !pvx.daily || !pvx.daily.length) return pvx;
+  const net = upToDay(pvx.daily, upto, 'net');
+  const cus = upToDay(pvx.daily, upto, 'customers');
+  return {
+    ...pvx,
+    gross: upToDay(pvx.daily, upto, 'gross'),
+    net, customers: cus,
+    goods: upToDay(pvx.daily, upto, 'goods'),
+    avg: cus ? net / cus : 0,
+    sameDay: true,
+  };
+}
+
+// 売上の下に小さく出す「前月の同じ日まで」
+function lastMonthLine(now, pvx, partial, upto) {
+  if (!pvx || !pvx.gross) return '';
+  const r = (now - pvx.gross) / pvx.gross * 100;
+  const lab = partial && pvx.sameDay ? `前月の同じ${upto}日まで` : '前月';
+  return `<div class="lastm">${lab} ${yen(pvx.gross)}円
+    <span class="${r >= 0 ? 'up' : 'down'}">${r >= 0 ? '+' : ''}${r.toFixed(1)}%</span></div>`;
+}
 
 /* ───────── 前年同月比 ───────── */
 const lastYear = m => (Number(m.slice(0, 4)) - 1) + m.slice(4);
