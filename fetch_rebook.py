@@ -107,13 +107,12 @@ def fetch_month(client, y, m):
 def main():
     os.makedirs(CACHE, exist_ok=True)
     months = target_months()
-    refresh = {months[-1], months[-2]} if len(months) > 1 else set(months)
+    # 会計データとちがい、次回予約は「打ったあと」に状況が変わる。
+    # 9月に打った予約の来店日が11月ということもあるので、過去の月も毎回
+    # 取り直さないと「来店待ち」のまま止まってしまう。
     client = None
     for y, m in months:
         path = os.path.join(CACHE, f"rebook_{y}-{m:02d}.csv")
-        if os.path.exists(path) and "--force" not in sys.argv and (y, m) not in refresh:
-            print(f"[{y}-{m:02d}] 次回予約：取得済み（スキップ）", flush=True)
-            continue
         if client is None:
             client = BeautyMeritClient(config.BM_BASE_URL, config.BM_LOGIN_ID, config.BM_PASSWORD)
             client.login()
